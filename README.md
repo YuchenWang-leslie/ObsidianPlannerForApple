@@ -119,4 +119,4 @@ Free use, modification and sharing are permitted, including personal work and in
 
 Not affiliated with Apple or Obsidian. The icon was generated with AI; [asset notes](Resources/Brand/README.md).
 
-[开发设计](docs/DEVELOPMENT.md) · [阶段测试记录](docs/PROGRESS.md)
+[开发设计](docs/DEVELOPMENT.md) · [阶段测试记录](docs/PROGRESS.md) · [Obsidian 插件化计划](docs/PLUGINIZATION_PLAN.md)
