@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>com.obsidianplanner.mac</string>
+<key>CFBundleName</key><string>ObsidianPlanner</string>
+<key>CFBundleExecutable</key><string>ObsidianPlanner</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleVersion</key><string>2</string>
+<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>NSCalendarsFullAccessUsageDescription</key><string>Read and update DayPlanner events exported from your Obsidian notes.</string>
+<key>NSRemindersFullAccessUsageDescription</key><string>Read and update DayPlanner reminders exported from your Obsidian notes.</string>
+<key>NSHighResolutionCapable</key><true/>
+</dict></plist>
