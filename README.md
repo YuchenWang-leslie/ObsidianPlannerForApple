@@ -102,11 +102,6 @@ Choose a vault containing root-level `YYYY-MM-DD.md` daily notes. Grant Reminder
 
 Only explicit same-day `- [ ] HH:mm - HH:mm Title` / `- [x] …` tasks are supported. Sync is one-way; source files are read-only. Source deletions do not remove exported items. Preserve the local Application Support history for deduplication. Conflicting outside edits are skipped. This beta has limited cross-version testing and no Intel release yet.
 
-## Contributors
-
-- [Yuchen Wang](https://github.com/YuchenWang-leslie) — 项目发起、需求设计、产品决策与实机验证。Project creator, product direction and on-device validation.
-- **Codex (OpenAI)** — AI 编程助手，参与代码实现、界面与图标设计、测试、文档和发布准备。AI coding assistant contributing to implementation, UI and icon design, testing, documentation and release preparation.
-
 ## License and project notes
 
 **MIT + Commons Clause v1.0 — source-available, not OSI open source.**
