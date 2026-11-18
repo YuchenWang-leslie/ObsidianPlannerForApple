@@ -13,7 +13,7 @@ Validation completed:
 - In the running native app, an isolated two-plan fixture showed existing=Skip and new=Add. Tested changing one plan to Update existing, one to Skip, and an existing plan to Add again. Re-previewing unchanged content retained the choices; editing the fixture reset them. Restored the original Vault and verified all recognized plans defaulted to Skip. No real source Markdown, reminders or calendar items were written during these UI checks.
 - Read-only review confirmed all-skipped runs return before destination creation and skipped rows bypass history preparation and EventKit writes.
 
-The latest build requires fresh Reminders authorization on this Mac. Actual new per-plan EventKit writes, partial save failures and iPhone arrival were not exercised in this round. Existing core tests model those selection/history decisions, not the full Apple integration. No GitHub push or release is created by this task.
+The latest build requires fresh Reminders authorization on this Mac. Actual new per-plan EventKit writes, partial save failures and iPhone arrival were not exercised in this round. Existing core tests model those selection/history decisions, not the full Apple integration. The implementation task did not publish a release. The user subsequently requested publication; v0.2.0-beta.1 release preparation includes updated usage, upgrade instructions, an explicit validation scope, and a new arm64 archive with checksum.
 
 
 ## Public beta preparation — 2026-10-29

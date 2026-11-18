@@ -10,9 +10,19 @@ A native macOS app that exports Obsidian Day Planner schedules to Apple Reminder
 
 **Beta 软件 · Apple silicon · 未经 Apple 公证。** 当前只在开发者的 Mac 上完成主要流程验证，尚未全面验证其他 macOS 版本。
 
-[下载最新版本 / Download](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.1.0-beta.2) · [全部测试版本 / All releases](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [MIT + Commons Clause](LICENSE)
+[下载最新版本 / Download](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.2.0-beta.1) · [全部测试版本 / All releases](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [MIT + Commons Clause](LICENSE)
 
-> 首版为 Pre-release，建议先用少量安排验证结果。
+> 当前版本 **v0.2.0-beta.1** 为 Pre-release，建议先用少量安排验证结果。
+
+## 本次更新 / What’s new
+
+**逐条决定怎么同步：** 新安排默认 Add，已添加过的安排默认 Skip。每条旧安排可选择 Update existing 或 Add again (new copy)。更新会将日记中的标题、时间、完成状态和本次通知设置写入关联条目；再次添加会保留旧条目，并把后续更新关联到新副本。
+
+检测基于本机同步历史。选择会在执行一批同步后重置；源内容、日期范围或时区变化也会清除旧选择。单纯重新预览未变化的内容会保留本次选择。
+
+从旧版升级时，请保留 `~/Library/Application Support/ObsidianPlanner/`。如果只修改了通知设置，也需要对相应安排选择 Update existing 才会应用；重试未完成条目请选 Update existing，避免 Add again 创建额外副本。
+
+[完整更新记录 / Changelog](CHANGELOG.md) · [本版本说明 / Release notes](docs/releases/v0.2.0-beta.1.md)
 
 ## 功能
 
@@ -71,6 +81,7 @@ A native macOS app that exports Obsidian Day Planner schedules to Apple Reminder
 
 - **单向同步：Obsidian → 苹果。** iPhone 的编辑和完成状态不会回写日记。默认跳过已添加条目；明确选择 Update existing 会把日记中的相应字段重新写入苹果条目，包括覆盖手机端的完成状态。
 - **不会自动删除。** 从 Markdown 删除安排、缩小日期范围，或关闭日历导出，都不会删除之前生成的苹果条目。
+- “已添加过”检测依赖本机同步历史，并非扫描标题或跨 Mac 自动识别。
 - 重复同步依赖本地历史：`~/Library/Application Support/ObsidianPlanner/`。请保留；暂不支持透明迁移 Vault 路径或完整的重装恢复。
 - 旧版生成的技术备注会在选择 Update existing 并成功同步后清理；Skip 不修改已有条目。
 - 本地历史与苹果对象不是一个原子事务；异常中断后的恢复没有全面验证。遇到部分失败，请先检查结果，选择 Update existing 重试未完成的条目；不要为重试选择 Add again，否则会明确创建另一份副本。
