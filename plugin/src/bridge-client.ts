@@ -30,7 +30,7 @@ export interface PreviewResult extends DateRange {
     linkCandidates: { id: string; date: string; title: string; startTime: string; endTime: string }[];
     counts: { create: number; update: number; unchanged: number; conflict: number; skipped: number };
 }
-interface BaseResponse { protocolVersion: 1; requestId: string; appVersion: string; message: string; errorCode?: string; capabilities?: string[] }
+export interface BaseResponse { protocolVersion: 1; requestId: string; appVersion: string; message: string; errorCode?: string; capabilities?: string[] }
 export interface OpenResponse extends BaseResponse { status: 'opened' | 'needsVault' | 'busy' | 'failed' }
 export interface PairResponse extends BaseResponse { status: 'pending' | 'paired' | 'failed' | 'busy' | 'needsSetup'; pairing?: PairingCredential }
 export interface PreviewResponse extends BaseResponse { status: 'previewReady' | 'failed' | 'busy' | 'needsSetup'; preview?: PreviewResult }
@@ -41,9 +41,10 @@ export interface SyncResult {
 }
 export interface SyncJob { requestId: string; previewId: string; vaultKey: string; status: string; createdAt: string; updatedAt: string; result?: SyncResult }
 export interface SyncResponse extends BaseResponse { status: 'running' | 'completed' | 'partial' | 'interrupted' | 'notFound' | 'failed' | 'busy' | 'needsSetup'; job?: SyncJob }
-type WireResponse = BaseResponse & { status: string; pairing?: PairingCredential; preview?: PreviewResult; job?: SyncJob };
+export type WireResponse = BaseResponse & { status: string; pairing?: PairingCredential; preview?: PreviewResult; job?: SyncJob };
 export interface BridgeOptions {
     root?: string;
+    scheme?: 'obsidianplanner' | 'obsidianplanner-helper';
     launch: (url: string) => Promise<void>;
     timeoutMs?: number;
     pollMs?: number;
@@ -54,12 +55,12 @@ export interface BridgeOptions {
     statusTimeoutMs?: number;
 }
 export class BridgeError extends Error {
-    readonly code: 'APP_NOT_FOUND' | 'NO_CONFIRMATION' | 'INVALID_RESPONSE' | 'INVALID_CREDENTIAL' | 'RUN_PENDING';
+    readonly code: 'APP_NOT_FOUND' | 'NO_CONFIRMATION' | 'INVALID_RESPONSE' | 'INVALID_CREDENTIAL' | 'RUN_PENDING' | 'HELPER_MISSING' | 'RUNTIME_MISMATCH' | 'UNSUPPORTED_PLATFORM';
     constructor(code: BridgeError['code'], message: string) { super(message); this.code = code; }
 }
 export const bridgeRoot = () => join(homedir(), 'Library', 'Application Support', 'ObsidianPlanner', 'Bridge');
 const missing = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT';
-const invalidResponse = () => new BridgeError('INVALID_RESPONSE', 'The Mac app returned an incompatible response. Install ObsidianPlanner 0.5.0 or a compatible companion app.');
+const invalidResponse = () => new BridgeError('INVALID_RESPONSE', 'The native sync service returned an incompatible response. Reinstall the matching complete plugin or App package.');
 const credentialValid = (value: unknown): value is PairingCredential => {
     const candidate = value as Partial<PairingCredential> | null;
     return !!candidate && typeof candidate.vaultKey === 'string' && /^[a-f0-9]{64}$/.test(candidate.vaultKey) &&
@@ -147,7 +148,7 @@ async function saveCredential(vaultPath: string, credential: PairingCredential, 
     try { await writeFile(temporary, JSON.stringify({ vaultPath, ...credential }), { mode: 0o600, flag: 'wx' }); await rename(temporary, target); }
     finally { await rm(temporary, { force: true }); }
 }
-async function send(input: OpenInput, action: 'open' | 'pair' | 'preview' | 'sync' | 'status', extra: object, allowed: string[], options: BridgeOptions, requestId?: string): Promise<WireResponse> {
+export async function sendBridgeRequest(input: OpenInput, action: 'open' | 'pair' | 'preview' | 'sync' | 'status' | 'info' | 'authorize' | 'configure' | 'unpair', extra: object, allowed: string[], options: BridgeOptions, requestId?: string): Promise<WireResponse> {
     validateInput(input); options.signal?.throwIfAborted();
     const root = options.root ?? bridgeRoot(), id = requestId ?? randomUUID().toLowerCase();
     const requestPath = join(root, 'inbox', `${id}.json`), temporaryPath = `${requestPath}.tmp`, responsePath = join(root, 'outbox', `${id}.json`);
@@ -156,8 +157,8 @@ async function send(input: OpenInput, action: 'open' | 'pair' | 'preview' | 'syn
     try {
         await writeFile(temporaryPath, JSON.stringify(request), { mode: 0o600, flag: 'wx' }); await rename(temporaryPath, requestPath);
         options.signal?.throwIfAborted();
-        try { await options.launch(`obsidianplanner://bridge/${action}?protocol=1&requestId=${id}`); }
-        catch { options.signal?.throwIfAborted(); throw new BridgeError('APP_NOT_FOUND', 'Could not open ObsidianPlanner. Install and open the matching companion Mac app first.'); }
+        try { await options.launch(`${options.scheme ?? 'obsidianplanner'}://bridge/${action}?protocol=1&requestId=${id}`); }
+        catch (error) { options.signal?.throwIfAborted(); if (error instanceof BridgeError) throw error; throw new BridgeError('APP_NOT_FOUND', options.scheme === 'obsidianplanner-helper' ? 'Could not start the bundled helper. Install the complete plugin 0.4.0 ZIP, including native/. No standalone App is required.' : 'Could not open ObsidianPlanner. Install and open the matching companion Mac app first.'); }
         const deadline = Date.now() + (options.timeoutMs ?? (action === 'pair' ? 120000 : 8000));
         let reportedPending = false;
         while (Date.now() < deadline) {
@@ -175,15 +176,16 @@ async function send(input: OpenInput, action: 'open' | 'pair' | 'preview' | 'syn
         throw new BridgeError('NO_CONFIRMATION', action === 'sync' || action === 'status'
             ? 'No confirmed sync result. The native job may still be running. Use Check last sync; do not submit the batch again.'
             : action === 'pair'
-            ? 'Pairing was not confirmed before the timeout. Check the Mac app and pair again manually. No sync was performed.'
-            : 'The Mac app did not confirm the request. It may be missing, still starting, or too old. Install the matching companion app and check its window. No sync was reported.');
+            ? options.scheme === 'obsidianplanner-helper' ? 'The helper did not confirm this connection. Refresh connection and try Connect this vault manually. No sync was performed.' : 'Pairing was not confirmed before the timeout. Check the Mac app and pair again manually. No sync was performed.'
+            : options.scheme === 'obsidianplanner-helper' ? 'The bundled helper did not confirm the request. Reinstall the complete plugin 0.4.0 package and check macOS permission settings. No sync was reported.'
+                : 'The Mac app did not confirm the request. It may be missing, still starting, or too old. Install the matching companion app and check its window. No sync was reported.');
     } finally { await Promise.all([requestPath, temporaryPath, responsePath].map(path => rm(path, { force: true }))); }
 }
 export async function openPlanner(input: OpenInput, options: BridgeOptions): Promise<OpenResponse> {
-    return await send(input, 'open', {}, ['opened', 'needsVault', 'busy', 'failed'], options) as OpenResponse;
+    return await sendBridgeRequest(input, 'open', {}, ['opened', 'needsVault', 'busy', 'failed'], options) as OpenResponse;
 }
 export async function pairPlanner(input: OpenInput, options: BridgeOptions, allowSync = false): Promise<PairResponse> {
-    const response = await send(input, 'pair', allowSync ? { allowSync: true } : {}, ['pending', 'paired', 'failed', 'busy', 'needsSetup'], options) as PairResponse;
+    const response = await sendBridgeRequest(input, 'pair', allowSync ? { allowSync: true } : {}, ['pending', 'paired', 'failed', 'busy', 'needsSetup'], options) as PairResponse;
     if (response.status === 'paired') {
         if (!credentialValid(response.pairing)) throw invalidResponse();
         response.pairing.allowSync = response.pairing.allowSync === true;
@@ -192,9 +194,9 @@ export async function pairPlanner(input: OpenInput, options: BridgeOptions, allo
     return response;
 }
 export async function previewPlanner(input: OpenInput, credential: PairingCredential, syncOptions: SyncOptions, options: BridgeOptions): Promise<PreviewResponse> {
-    if (!credentialValid(credential)) throw new BridgeError('INVALID_CREDENTIAL', 'Pair this vault before requesting a preview.');
+    if (!credentialValid(credential)) throw new BridgeError('INVALID_CREDENTIAL', options.scheme === 'obsidianplanner-helper' ? 'Connect this vault before requesting a preview.' : 'Pair this vault before requesting a preview.');
     if (!validSyncOptions(syncOptions)) throw new Error('Choose valid destination and notification settings. Calendar notifications require calendar export.');
-    const response = await send(input, 'preview', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, options: syncOptions }, ['previewReady', 'failed', 'busy', 'needsSetup'], options) as PreviewResponse;
+    const response = await sendBridgeRequest(input, 'preview', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, options: syncOptions }, ['previewReady', 'failed', 'busy', 'needsSetup'], options) as PreviewResponse;
     if (response.status === 'previewReady') validatePreview(response.preview, input, credential, syncOptions);
     if (response.errorCode === 'VAULT_NOT_PAIRED') await removeCredential(input.vaultPath, options.root ?? bridgeRoot());
     return response;
@@ -241,7 +243,7 @@ async function recordResponse(run: RunPointer, response: SyncResponse, root: str
 }
 export async function syncPlanner(input: OpenInput, credential: PairingCredential, syncOptions: SyncOptions, preview: PreviewResult, selection: PlanSelection, options: BridgeOptions): Promise<SyncResponse> {
     validateInput(input);
-    if (!credentialValid(credential) || credential.allowSync !== true || !preview.syncAllowed) throw new Error('This pairing is preview-only. Pair again with sync access and confirm it in the Mac app.');
+    if (!credentialValid(credential) || credential.allowSync !== true || !preview.syncAllowed) throw new Error(options.scheme === 'obsidianplanner-helper' ? 'This connection is preview-only. Use Connect this vault to approve preview + sync for this independent plugin.' : 'This pairing is preview-only. Pair again with sync access and confirm it in the Mac app.');
     validatePreview(preview, input, credential, syncOptions); validateSelection(preview, selection);
     options.signal?.throwIfAborted();
     const root = options.root ?? bridgeRoot(), previous = await readRun(input.vaultPath, root);
@@ -250,18 +252,19 @@ export async function syncPlanner(input: OpenInput, credential: PairingCredentia
         vaultKey: credential.vaultKey, createdAt: new Date().toISOString(), status: 'unconfirmed', acknowledged: false };
     // Persist before even opening the App: a lost response must never cause resubmission.
     await writeRun(run, root);
-    const response = await send(input, 'sync', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, options: syncOptions, previewId: preview.previewId,
+    const response = await sendBridgeRequest(input, 'sync', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, options: syncOptions, previewId: preview.previewId,
         choices: selection.choices, resolutions: selection.resolutions }, syncStatuses, options, run.requestId) as SyncResponse;
     validateJob(response, run.requestId, credential.vaultKey, preview.previewId);
     await recordResponse(run, response, root);
     return response;
 }
 export async function statusPlanner(input: OpenInput, credential: PairingCredential, syncRequestId: string, options: BridgeOptions): Promise<SyncResponse> {
-    if (!credentialValid(credential) || !/^[a-f0-9-]{36}$/.test(syncRequestId)) throw new Error('Pair this vault and choose a valid saved sync record before checking status.');
-    const response = await send(input, 'status', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, syncRequestId }, syncStatuses, options) as SyncResponse;
+    if (!credentialValid(credential) || !/^[a-f0-9-]{36}$/.test(syncRequestId)) throw new Error(options.scheme === 'obsidianplanner-helper' ? 'Connect this vault and choose a valid saved sync record before checking status.' : 'Pair this vault and choose a valid saved sync record before checking status.');
+    const response = await sendBridgeRequest(input, 'status', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, syncRequestId }, syncStatuses, options) as SyncResponse;
     const root = options.root ?? bridgeRoot(), run = await readRun(input.vaultPath, root);
     validateJob(response, syncRequestId, credential.vaultKey, run?.requestId === syncRequestId ? run.previewId : undefined);
-    if (run?.requestId === syncRequestId) await recordResponse(run, response, root);
+    // A refused query says nothing about the original write; keep its recovery gate.
+    if (run?.requestId === syncRequestId && (response.job || response.status === 'notFound')) await recordResponse(run, response, root);
     return response;
 }
 export async function waitForRun(run: RunPointer, credential: PairingCredential, options: BridgeOptions): Promise<SyncResponse | null> {

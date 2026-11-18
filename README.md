@@ -4,74 +4,59 @@
 
 # ObsidianPlannerForApple
 
-在 Obsidian 内预览 Day Planner 安排，逐条选择添加、跳过、更新或再次添加，再同步到苹果提醒事项和可选日历。插件调用单独安装的 Mac App；iPhone 通过 iCloud 查看，无需同步整个 Obsidian Vault。
+把 Obsidian Day Planner 安排同步到苹果提醒事项和可选日历：可以独立使用 Mac App，也可以只安装 Obsidian 插件。在 Mac 计划，iPhone 通过 iCloud 查看，无需同步整个 Vault。
 
-A macOS app and Obsidian companion plugin for previewing Day Planner schedules, choosing an action per plan, and exporting to Apple Reminders with optional Calendar events. View plans on iPhone through iCloud.
+Export saved Day Planner schedules to Apple Reminders and optional Calendar events. Choose the standalone Mac App or an independent Obsidian plugin. The new plugin includes its own small macOS background component and does not require the full App.
 
-**Beta 软件 · Apple silicon · 未经 Apple 公证。** 当前只在开发者的 Mac 上完成主要流程验证，尚未全面验证其他 macOS 版本。
+**Apple silicon · macOS 14+ 构建目标 · ad-hoc 签名，未经 Apple 公证 · MIT + Commons Clause，source-available。**
 
-[下载 v0.5.0-beta.1 / Download beta](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) · [全部版本](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [MIT + Commons Clause](LICENSE)
+| 产品 | 版本与状态 | 安装方式 |
+| --- | --- | --- |
+| 独立 Mac App | 已发布 App 0.5.0 / build 6；本次不改动 | [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 中的 App ZIP |
+| 独立 Obsidian 插件 | 插件/helper 0.4.0；本地及实机验收通过 | [plugin-v0.4.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/plugin-v0.4.0-beta.1) 中的插件 ZIP 与校验和 |
 
-> **v0.5.0-beta.1：App 0.5.0 / build 6，插件 0.3.0，bridge protocol 1。** 本机测试 Vault 的核心日常流程、真实同步、iPhone 到达和通知已通过验证。App 可独立使用；插件需要另外安装同一 Release 中的 App，旧公开 App 不支持插件同步。
+原 v0.5.0-beta.1 的 App、0.3.0 伴随插件及发行附件保持原样。0.3.0 的“另装完整 App”要求不适用于新的独立插件。
 
-## 本次更新 / What’s new
+[全部已发布版本](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [插件 0.4.0 说明](docs/releases/plugin-v0.4.0-beta.1.md) · [更新记录](CHANGELOG.md)
 
-**在 Obsidian 完成预览与同步：** 侧栏按钮和命令面板打开本周、下周或自定义范围；预览按日期展示安排、匹配状态、格式问题和源日记链接。每条安排可选择添加、跳过、更新或再次添加；冲突可明确关联旧条目、创建新条目或跳过。权限和目标账户仍在 Mac App 设置。
+## 独立插件 0.4.0
 
-新安排默认 Add，已添加过的安排默认 Skip，包括日记中有修改的条目。Update existing 会将源标题、时间、完成状态和本次通知设置写入关联条目；Add again 保留旧条目，并把后续更新关联到新副本。
+在 Obsidian 内连接当前 Vault、授予所需苹果权限、选择提醒事项／日历账户、预览和逐条同步，查看本机结果及上次请求状态。无需打开完整 Mac App。插件 ZIP 附带 `native/DayPlannerAppleSyncHelper.app`，按需作为无主窗口、无 Dock 图标的本机后台组件运行；它不是从网络临时下载的可执行文件。
 
-预览会核对已保存的源文件、Day Planner 配置和本机历史。提交前发生变化须重新预览；App 重启或预览过期也需刷新。执行后或改变范围／选项时清除本次选择。请求状态可查询；超时、关闭窗口或停用插件不会自动提交新一轮同步，也不保证中止已经开始的本机写入。
+**本机实测通过。** 59 项插件测试、Swift 核心检查、30 项 helper 检查、签名组件启动及独立 ZIP 打包通过。新组件的权限、iCloud 账户、真实逐条同步、空闲退出后的预览／结果恢复、插件重载及 iPhone 提醒事项／日历检查均已完成；完整 App 全程未启动。详见 [独立插件记录](docs/PLUGIN_STANDALONE.md)。远端 CI 未运行通过，本次按维护者选择以本地验证为准。
 
-**升级请保留 `~/Library/Application Support/ObsidianPlanner/`。** P2 的只读配对可继续预览，但同步需要在 App 重新明确批准 preview-and-sync 配对。如果只修改通知设置，选择 Update existing 才会应用；部分失败后先检查苹果条目，再重新预览并以 Update existing 重试未完成条目，避免 Add again 创建额外副本。
+### 安装和连接
 
-[完整更新记录 / Changelog](CHANGELOG.md) · [本版本说明 / Release notes](docs/releases/v0.5.0-beta.1.md)
+1. 从 [插件 release](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/plugin-v0.4.0-beta.1) 获取 `day-planner-apple-sync-0.4.0.zip` 与 `SHA256SUMS-plugin-0.4.0.txt`。在下载目录运行 `shasum -a 256 -c SHA256SUMS-plugin-0.4.0.txt` 核对附件。
+2. 停用旧插件，将 ZIP 中的 `day-planner-apple-sync/` 放入 `<Vault>/.obsidian/plugins/`。保留 `main.js`、manifest、样式、README、LICENSE 和完整 `native/` 文件夹。
+3. 在 Obsidian Settings → Community plugins 启用 Day Planner Apple Sync。尚未提交社区目录，当前采用 GitHub 手动安装；如未发现文件夹，重启 Obsidian。先用独立测试 Vault 和少量假安排验证。
+4. 插件把随包的 helper 安装到此 Mac 的私有版本目录并按需唤起。它有自己的系统授权；以前给完整 App 或 Obsidian 的权限不会自动转移。当前为 ad-hoc 签名、无 Developer ID 或 Apple 公证；若系统阻止打开，在核对来源后按 [Apple 官方说明](https://support.apple.com/en-us/102445) 处理。不要全局关闭 Gatekeeper，也不修改 Obsidian 的 Info.plist。
+5. 点击侧栏或运行 **Open Apple sync**，核对当前 Vault 的准确路径并点击 **Connect this vault**。这是明确的本地 preview + sync 授权，不会自动写入苹果条目。旧伴随插件凭据不复制到新 helper；原去重历史保留。
+6. 在插件点击 **Grant Reminders Access** 并选择 **Reminders account**。只有需要日历时才另点 **Grant Calendar Access**、选择 **Calendar account**；两种权限和账户独立。**Refresh connection** 可刷新状态，**Disconnect this vault** 撤销该 helper 配对且保留苹果条目及历史。
 
-本轮在独立测试 Vault 的假安排上实测了创建、逐条更新／跳过、标题与时间修改、完成状态覆盖、再次添加、手动关联、重复提交保护、来源／历史变化拦截、App 重启后状态查询，以及独立原生同步。测试 Vault 窗口关闭重开和插件停用启用后，配对、偏好与上次结果保留，状态查询不重提同步；Skipped 徽标修复已在宿主复核。用户确认 iPhone 提醒事项和日历可见、日历时间正确，并收到提醒事项通知。45 项插件本地测试、类型检查和生产构建通过；远端 CI 因平台／账户配置阻塞未启动，不计为通过。
+macOS 默认隐藏 `.obsidian` 等点号开头的文件夹。在 Finder 或文件夹选择窗口中按 **⌘⇧G** 输入完整路径，或按 **⌘⇧.** 显示隐藏文件夹。
 
-最终安装包已重新构建，解压后的 App 和插件文件与实机验收的安装内容逐字节一致；公开发布后重新下载的附件校验和及文件比对也通过，详见 [阶段记录](docs/PLUGINIZATION_PROGRESS.md)。完整 Obsidian 进程重启、额外主题／窄窗及本版源链接复测尚未完成。真实账户的部分失败、拒绝／撤销权限未人为制造，相关逻辑由假后端测试覆盖；其他机器、最低版本组合及跨崩溃严格只写一次均未得到验证。
+### 预览、逐条选择和恢复
 
-## 功能
+**先保存编辑。** 原生核心读取磁盘上的日记，插件不强制保存或改写笔记。选择本周／下周／自定义范围（含两端、周一开始）、IANA 日程时区和通知选项；默认仅提醒事项、提前 10 分钟。预览按日期分组并显示格式问题与源日记位置。
 
-- 本周、下周、自定义日期范围（含过去日期）；每周从周一开始。
-- 默认只生成 **DayPlanner 提醒事项**；可选同时生成 **DayPlanner 日历事件**。
-- 默认提前 10 分钟提醒，可调整时间、关闭通知或选择通知渠道。
-- 常用时区菜单、全部时区搜索，以及使用系统时区。
-- 同步前预览；每条安排可单独选择跳过、更新或再次添加，未添加过的安排默认添加。
-- Obsidian 内配对、预览、逐条操作、同步结果及上次同步状态查询；共用原生解析器、执行器和历史。
-- 无法自动匹配时，可手动关联旧条目或明确作为新条目创建。
-- 只读 Obsidian 文件，无服务器、无独立 App 账户。
+- 新安排默认 **Add**；旧安排即使源内容变化也默认 **Skip**。
+- **Update existing** 把源标题、时间、完成状态和本次通知设置重新应用到关联条目，会覆盖对应的苹果端修改。
+- **Add again** 保留旧条目并新建副本；后续更新指向最新副本。不要用它做普通失败重试。
+- 冲突默认跳过，可明确选择 **New** 或 **Link** 到已有记录。
 
-## 安装与首次打开
+点击 **Sync selected** 提交所审阅的一批。源、Day Planner 配置、历史、账户或选项改变须重新预览；预览有效期为 30 分钟。helper 的空闲退出保留近期预览和结果。执行后清除选择，没有自动／定时同步。
 
-1. 从 [Releases](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) 下载 `ObsidianPlanner-…-macOS-arm64.zip`，解压。
-2. 将 `ObsidianPlanner.app` 拖入「应用程序」。当前安装包适用于 **M 系列芯片 Mac**；未提供 Intel 安装包。
-3. 尝试打开 App。如果 macOS 因开发者未经验证／未公证而阻止打开，在确认下载来源可信后，可到 **系统设置 → 隐私与安全性 → 仍要打开**，核对 App 名称后确认。受组织管理的 Mac 可能不允许此操作。参见 [Apple 官方说明](https://support.apple.com/en-us/102445)。
-4. 本 App 没有 Developer ID 签名，也没有经过 Apple 公证。仅在信任此项目时安装；无需关闭系统的整体安全保护。
+结果分别报告提醒事项和日历的本机保存、跳过、失败和未解决。**Mac 保存成功不代表 iPhone 已收到**，实际到达与通知需使用同一 Apple 账户、开启 iCloud 后另行核对。
 
-**系统要求：** Apple silicon；构建最低目标 macOS 14。实际测试环境为 macOS 27.0.1 / Obsidian 1.15.1。插件 manifest 声明最低 Obsidian 1.5.0，但这不表示已在所有中间版本验证；macOS 14–26 和 Intel 未完成运行兼容性测试。
+超时、关闭窗口或停用插件不保证中止已开始的写入。**Check last sync** 查询原请求，不重提。部分失败／中断／未确认时先检查苹果条目，再重新预览，对已关联未完成条目用 Update existing 补写。提醒事项、日历和本机 JSON 不是同一事务，没有跨进程／跨崩溃严格 exactly-once 保证。
 
-### 安装 Obsidian 插件
+完整安装、开发包 runtime 不匹配修复和恢复操作见 [插件 README](plugin/README.md)。
 
-1. 先安装并打开上述 **App 0.5.0**。插件不下载或内置原生程序，旧的公开 App 不支持本版同步。
-2. 下载同一 Release 中的 `day-planner-apple-sync-0.3.0.zip`。关闭旧版插件，将压缩包中的 `day-planner-apple-sync/` 文件夹放入 `<Vault>/.obsidian/plugins/`，使 `main.js` 位于 `.obsidian/plugins/day-planner-apple-sync/main.js`。保留同包的 manifest、样式、README 和 LICENSE。
-3. 在 Obsidian **Settings → Community plugins** 开启社区插件，并启用 **Day Planner Apple Sync**。如未发现插件，重启 Obsidian。当前未提交社区目录，不能通过 Browse 搜索安装。插件运行于桌面 Obsidian，仅支持 macOS；参见 [Obsidian 插件启用说明](https://help.obsidian.md/Extending+Obsidian/Community+plugins)。
-4. 更新时替换这五个发行文件；不要删除本机 Application Support 历史或把配对凭据复制到 Vault。无需为 iPhone 安装插件。
+## 已发布的独立 Mac App
 
-在下载目录放好两个 ZIP 和 `SHA256SUMS.txt` 后，可运行 `shasum -a 256 -c SHA256SUMS.txt` 核对附件完整性。
+App 0.5.0 / build 6 继续按原方式独立使用，本次不重建或替换其发行包。下载 [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 的 `ObsidianPlanner-…-macOS-arm64.zip`，解压后拖入 Applications。该 App 为 ad-hoc 签名且未公证；首次打开的系统限制见 [Apple 官方说明](https://support.apple.com/en-us/102445)。原本机真实写入／iPhone 验收范围见 [阶段记录](docs/PLUGINIZATION_PROGRESS.md)，不自动适用于新 helper。
 
-### 在 Obsidian 同步
-
-1. **先保存编辑。** App 读取磁盘上的日记，插件不会强制保存或改写笔记。
-2. 点击侧栏按钮或运行 **Open Apple sync**。核对当前 Vault 路径，选择本周／下周／自定义范围、日程时区和通知选项。
-3. 点击 **Pair for preview + sync…**，在 App 核对来源并明确批准。已有 P2 只读配对须重新批准同步权限；选择文件夹本身不等于批准。
-4. 在 App 授予提醒事项权限并选择可写的目标账户。仅提醒事项无需日历权限；启用日历后，另行授予日历权限并选择账户。
-5. 点击 **Preview saved plans**，逐条选择操作；匹配冲突默认跳过，只有明确选择关联或新建才处理。点击源日记标签可定位原文。
-6. 点击 **Sync selected** 提交所审阅的预览，查看每条安排的本机结果。若来源或历史改变，重新预览后再决定。
-7. 若结果未确认，使用 **Check last sync** 查询原请求。部分失败或 interrupted／not found 时先检查 Mac 提醒事项／日历，再重新预览；未完成的已关联条目选 Update existing。不会自动重试，也不承诺崩溃情况下严格只写一次。
-
-成功提示代表 **Mac 已保存**，iPhone 到达与通知仍须通过苹果系统验证。连接状态和状态查询不能替代实际同步结果。详细设置、撤销配对和恢复说明见 [插件 README](plugin/README.md)。
-
-## 独立使用 Mac App
 
 1. **Choose Vault…**：选择 Obsidian Vault。第一版读取根目录下的 `YYYY-MM-DD.md` 日记。
 2. **Grant Reminders Access**：在系统弹窗中允许访问提醒事项，然后选择 iCloud 提醒事项账户。
@@ -105,46 +90,21 @@ A macOS app and Obsidian companion plugin for previewing Day Planner schedules, 
 - 代码块、注释及目标标题节之外的内容不导出。重叠安排保留并提示。
 - App 生成的备注显示 `Time: 09:00 – 10:30`；同步身份使用条目 URL 和本地历史维护。
 
-## 注意事项与当前限制
+## 共用历史、隐私与限制
 
-- **单向同步：Obsidian → 苹果。** iPhone 的编辑和完成状态不会回写日记。默认跳过已添加条目；明确选择 Update existing 会把日记中的相应字段重新写入苹果条目，包括覆盖手机端的完成状态。
-- **不会自动删除。** 从 Markdown 删除安排、缩小日期范围，或关闭日历导出，都不会删除之前生成的苹果条目。
-- “已添加过”检测依赖本机同步历史，并非扫描标题或跨 Mac 自动识别。
-- 重复同步依赖本地历史：`~/Library/Application Support/ObsidianPlanner/`。请保留；暂不支持透明迁移 Vault 路径或完整的重装恢复。
-- 旧版生成的技术备注会在选择 Update existing 并成功同步后清理；Skip 不修改已有条目。
-- 本地历史、提醒事项和日历不是一个原子事务；跨崩溃恢复没有严格 exactly-once 保证。插件保留上次请求供查询，有限等待后停止轮询。遇到未确认或部分失败结果，先检查苹果条目，再刷新预览；Update existing 用于已关联条目的补写，Add again 明确创建另一份副本。
-- 界面报告的是 Mac 本机写入结果，不表示 iPhone 已接收；实际到达时间和通知行为受 iCloud、网络及系统通知设置影响。
-- 更新或重新编译后可能需要重新授予权限。提醒事项权限和日历权限分别在系统设置中管理。
-- 「Connection test」是可选诊断功能，每次点击都会创建新测试条目；测试后可自行删除。
-- 界面目前为英文。日期显示可能随系统语言变化。
+App 和新插件使用相同的 Vault 标准化绝对路径身份及本机去重历史，可顺序切换并复用已有苹果身份。**同一时间只使用一个同步入口。** helper 的写入锁只协调 helper 实例，旧 App 不参与；不要同时点 App 和插件同步。
 
-## 隐私
+- **单向 Obsidian → 苹果。** 不回写日记，不因源删除、缩小范围或关闭日历而自动删除旧条目。保留苹果端编辑时选 Skip。
+- 保留 `~/Library/Application Support/ObsidianPlanner/`。检测依赖此 Mac 的历史，换 Mac、改变 Vault 路径或丢失历史没有透明迁移保证；不要清空历史来解决冲突。
+- 新插件在私有 `PluginBridge/` 保存独立凭据、请求、近期预览和结果；随包 helper 安装于 `PluginRuntime/0.4.0/`。旧 App 的 `Bridge/` 保持独立。插件偏好可在 Vault，但令牌、账户 ID、预览与运行指针不进入 `data.json`。
+- 请求含路径、日期、时区、选项和凭据，结果可含标题与源位置；不复制整篇日记到通信目录。URL 只有协议版本和 UUID。无自建服务器、监听端口、遥测或自动网络下载原生程序。本机机制不能隔离同用户的恶意进程。
+- 导出的标题、时间、备注和身份 URL 会进入所选苹果账户，选用 iCloud 时由苹果同步到其他设备。停用插件或撤销配对不删除这些对象或历史。
+- Apple silicon、macOS 14 和 Obsidian manifest 最低 1.5.0 是本版目标／声明；实际测试环境为 macOS 27.0.1 / Obsidian 1.15.1，其他系统组合和 Intel 未测。
+- 当前未提交 Obsidian 社区目录，不保证审核接受带原生组件的分发方式或当前许可证。iPhone 不需要安装插件；没有 iOS／Windows／Linux 同步端。
 
-App 在本机读取选定 Vault 的日记，保存同步映射并通过 EventKit 访问苹果日历／提醒事项。选定导出的标题、时间、备注和同步 URL 会写入你选择的苹果账户；选用 iCloud 时由苹果同步至你的其他设备。App 不提供自己的服务器或分析服务。运行时数据不属于源码仓库。
+## 从源码构建
 
-插件偏好保存在 Vault 插件设置；配对凭据、上次同步指针、App 书签、历史和近期结果收据保存在 **同一台 Mac 的私有 Application Support 目录**。凭据不写入 Vault 或唤起 URL；不同绝对路径的 Vault 独立配对。请求包含路径、日期、时区和选项，预览／结果可含标题和源位置；不会复制整篇日记到通信目录。关闭插件会停止等待，但不能撤销已开始的 EventKit 写入。
-
-插件的 Forget on this Mac 只清除本地客户端凭据；App 撤销配对阻止后续访问，两者都不删除苹果条目或去重历史。本机凭据机制不能隔离同用户运行的恶意程序。跨 Mac／Vault 改路径迁移没有透明恢复保证。
-
-[插件构建、配对与使用](plugin/README.md) · [插件阶段测试记录及未验证项](docs/PLUGINIZATION_PROGRESS.md) · [同步协议](docs/PLUGIN_BRIDGE_P3.md)
-
-## 从源码构建 / Build from source
-
-安装 Apple Swift 命令行工具后：
-
-```sh
-git clone https://github.com/YuchenWang-leslie/ObsidianPlannerForApple.git
-cd ObsidianPlannerForApple
-./scripts/test-core.sh
-./scripts/build-app.sh
-open dist/ObsidianPlanner.app
-```
-
-构建脚本使用当前机器的架构并进行本地临时签名。图标资源已包含；修改图标源文件后可运行 `./scripts/build-icon.sh` 重建 ICNS。
-
-`swift test` 需要提供 XCTest 的开发环境（通常为完整 Xcode）。`test-core.sh` 使用 `swiftc` 运行独立测试，不依赖 XCTest。
-
-插件构建需要 Node.js 24+：
+新插件的 JavaScript 检查可使用 Node.js 24+：
 
 ```sh
 cd plugin
@@ -153,21 +113,26 @@ npm test
 npm run build
 ```
 
-在仓库根目录执行 `./scripts/package-release.sh 0.5.0-beta.1`（参数可省略）会核对 App 版本与发行 tag、插件 manifest/package/lock 版本，重新构建 App 和插件，将两个干净 ZIP 与 `SHA256SUMS.txt` 写入 `dist/`。发行打包只接受 Apple silicon Mac；不会发布、上传或安装插件。
+完整独立插件包还需要 Apple silicon Mac 和 Apple Swift 命令行工具。在仓库根目录运行：
+
+```sh
+./scripts/package-plugin-release.sh 0.4.0-beta.1
+```
+
+该脚本执行 npm 干净安装／测试／构建，仅构建新 helper，再生成 `plugin/dist/day-planner-apple-sync-0.4.0.zip` 与独立校验和。不调用旧 App 构建或 `package-release.sh`，不替换旧 App ZIP，不上传或安装任何内容。普通 `npm run build` 只输出 JS；缺 helper 时插件打包会报错。
+
+原 App 的源码构建方式保留：`./scripts/test-core.sh`、`./scripts/build-app.sh`。本次插件发布不用它重建 App。`test-core.sh` 使用 swiftc 运行独立核心测试；`swift test` 另需提供 XCTest 的开发环境。
 
 ## English quick start
 
-Download the Apple silicon ZIP from Releases, unzip it, and move the app into Applications. This beta is ad-hoc signed and **not notarized**. If macOS blocks it, follow Apple's Privacy & Security → Open Anyway procedure after verifying the source.
+Plugin 0.4.0 is an independent macOS Obsidian plugin. Its ZIP includes a background native helper, so no full ObsidianPlanner App is required. Connect the vault, grant the helper's separate Reminders/optional Calendar permissions and choose accounts in Obsidian. Save notes before previewing, review per-plan choices, and sync explicitly. Local automated checks and this helper's real-account, recovery, host-reload and iPhone acceptance passed; see the validation record for scope and limits.
 
-For Obsidian, install the separate plugin ZIP in `<vault>/.obsidian/plugins/` and enable **Day Planner Apple Sync**. It requires App **0.5.0**, plugin **0.3.0**, and a local macOS vault. Save editor changes first, explicitly approve preview-and-sync pairing in the App, configure Apple permissions/accounts there, then preview and sync in Obsidian. Existing P2 read-only pairs need new approval to sync. The native App also works independently.
+The existing standalone App 0.5.0/build 6 and its published release assets stay unchanged. App and helper share local deduplication history for sequential use; use one sync entry point at a time. Status queries never resubmit an uncertain job. Inspect Apple items before a partial/interrupted retry, and use Update existing for linked incomplete items. Local saves do not confirm iPhone delivery, and no cross-process/crash exactly-once guarantee is made.
 
-Choose a vault containing root-level `YYYY-MM-DD.md` daily notes. Reminders and Calendar permissions are independent; Reminders-only export needs no Calendar permission. New plans default to Add; previously exported plans default to Skip. Update existing reapplies source fields, including completion and notification settings. Add again preserves the old export and creates a new copy for later updates. Default notification: 10 minutes before the schedule. Mac and iPhone need the same Apple account with iCloud enabled.
-
-Source/configuration/history changes require a fresh preview. Check last sync queries the original job after an unconfirmed result; it never submits a new write automatically. For partial/interrupted results, inspect Apple items and preview again before retrying linked incomplete entries with Update existing. Add again creates another copy. Local saves do not confirm iPhone arrival, and crash recovery is not an exactly-once guarantee.
-
-Only explicit same-day `- [ ] HH:mm - HH:mm Title` / `- [x] …` tasks under the configured Day Planner heading are supported. Sync is one-way; source files are read-only. Source deletions do not remove exports. Preserve the private local Application Support history and credentials; ordinary vault sync does not migrate them. Build minimum: macOS 14 / Obsidian 1.5.0. Actual test environment: Apple silicon, macOS 27.0.1 and Obsidian 1.15.1; other versions are unverified. No Intel, mobile, Windows/Linux, automatic sync or community-directory release is provided.
+Manual GitHub distribution, Apple silicon/macOS 14+ target, ad-hoc signing and no Apple notarization. Other systems/Intel and community-directory acceptance are unverified. The [plugin README](plugin/README.md) and [independent-plugin record](docs/PLUGIN_STANDALONE.md) contain setup and validation details.
 
 ## License and project notes
+
 
 **MIT + Commons Clause v1.0 — source-available, not OSI open source.**
 

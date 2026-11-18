@@ -187,6 +187,16 @@ test('confirmed busy/setup rejection is failed locally, while preserving its act
         assert.equal(response.job, undefined);
     }
 }));
+test('a refused status query preserves the running job and blocks another batch', () => fixture(async root => {
+    await submit(root); const before = await readRun(input.vaultPath, root);
+    for (const status of ['busy', 'needsSetup', 'failed']) {
+        const response = await statusPlanner(input, credential, before.requestId, { root, launch: async url => respond(root, await requestFor(root, url, 'status'), status, { errorCode: 'VAULT_NOT_PAIRED' }) });
+        assert.equal(response.status, status);
+        const after = await readRun(input.vaultPath, root);
+        assert.deepEqual(after, before); assert.ok(runBlocksNewSync(after));
+        await assert.rejects(submit(root), error => error.code === 'RUN_PENDING');
+    }
+}));
 test('old App sync-pair response says update App rather than endlessly pair again', () => {
     const response = { protocolVersion: 1, requestId: 'test', status: 'paired', appVersion: '0.4.0', message: 'Paired.', pairing: { ...credential, allowSync: false }, capabilities: ['open', 'pair', 'preview'] };
     assert.match(pairingStatusMessage(response, true), /Install ObsidianPlanner 0\.5\.0/);
