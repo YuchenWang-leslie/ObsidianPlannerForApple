@@ -1,29 +1,52 @@
-.apple-sync-modal { width: min(760px, 92vw); }
-.apple-sync-preview { padding: 4px; }
-.apple-sync-header { margin-bottom: 24px; }
-.apple-sync-eyebrow { color: var(--text-accent); font-size: var(--font-smallest); letter-spacing: .08em; font-weight: 600; }
-.apple-sync-header h2 { margin: 8px 0; }
-.apple-sync-context { color: var(--text-accent); font-weight: 500; margin-bottom: 4px; }
-.apple-sync-description, .apple-sync-reason { color: var(--text-muted); line-height: 1.5; font-size: var(--font-small); }
-.apple-sync-path { color: var(--text-faint); overflow-wrap: anywhere; font-size: var(--font-smaller); }
-.apple-sync-card { padding: 16px 20px; margin: 14px 0; border: 1px solid var(--background-modifier-border); border-radius: 12px; background: var(--background-secondary); }
-.apple-sync-card h3 { margin: 0 0 12px; font-size: var(--font-ui-medium); }
-.apple-sync-card .setting-item:last-child { padding-bottom: 0; }
-.apple-sync-save-note { color: var(--text-muted); font-size: var(--font-small); }
-.apple-sync-status { color: var(--text-muted); line-height: 1.5; min-height: 1.5em; }
+.apple-sync-modal { width: min(820px, 94vw); }
+.apple-sync-planner { padding: 2px 4px; }
+.apple-sync-header { margin-bottom: 18px; }
+.apple-sync-header h2 { margin: 0 0 4px; font-size: 1.45em; }
+.apple-sync-context { color: var(--text-accent); margin: 0 0 12px; font-weight: 500; }
+.apple-sync-description, .apple-sync-reason, .apple-sync-footnote { color: var(--text-muted); font-size: var(--font-small); line-height: 1.5; }
+.apple-sync-footnote { margin-top: 22px; color: var(--text-faint); }
+.apple-sync-path { color: var(--text-muted); font-size: var(--font-smaller); overflow-wrap: anywhere; }
+.apple-sync-range-bar { margin-top: 12px; }
+.apple-sync-range-bar > .setting-item { border: 0; padding: 4px 0 10px; }
+.apple-sync-custom-dates { display: flex; gap: 16px; flex-wrap: wrap; }
+.apple-sync-custom-dates .setting-item { border: 0; flex: 1; }
+.apple-sync-options, .apple-sync-setup, .apple-sync-last-result, .apple-sync-issues { margin: 10px 0; padding: 12px 14px; border: 1px solid var(--background-modifier-border); border-radius: 10px; }
+.apple-sync-planner summary { color: var(--text-muted); cursor: pointer; font-size: var(--font-small); }
+.apple-sync-planner details[open] > summary { margin-bottom: 10px; }
+.apple-sync-planner details .setting-item { padding: 10px 0; }
+.apple-sync-actions .setting-item { border: 0; justify-content: flex-start; padding: 8px 0; }
+.apple-sync-actions .setting-item-info { display: none; }
+.apple-sync-actions .setting-item-control { flex-wrap: wrap; justify-content: flex-start; width: 100%; }
+.apple-sync-status { color: var(--text-muted); line-height: 1.5; font-size: var(--font-small); min-height: 1em; }
 .apple-sync-summary, .apple-sync-plan-badges { display: flex; flex-wrap: wrap; gap: 6px; }
-.apple-sync-summary { margin: 24px 0 12px; }
-.apple-sync-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: var(--font-smallest); font-weight: 500; color: var(--text-muted); background: var(--background-modifier-hover); }
+.apple-sync-badge { display: inline-block; border-radius: 5px; padding: 3px 7px; font-size: var(--font-smallest); font-weight: 500; color: var(--text-muted); background: var(--background-modifier-hover); }
 .apple-sync-create { color: var(--text-success); }
 .apple-sync-update { color: var(--text-accent); }
-.apple-sync-conflict { color: var(--text-warning); }
-.apple-sync-day { margin: 24px 0; }
-.apple-sync-day h3 { font-size: var(--font-ui-small); color: var(--text-muted); }
-.apple-sync-plan { display: flex; gap: 18px; padding: 16px 0; border-top: 1px solid var(--background-modifier-border); }
-.apple-sync-plan-time { color: var(--text-muted); min-width: 90px; font-size: var(--font-small); font-variant-numeric: tabular-nums; padding-top: 2px; }
-.apple-sync-plan-body { min-width: 0; }
-.apple-sync-plan-body strong { display: block; margin-bottom: 8px; }
-.apple-sync-reason { margin: 8px 0; }
+.apple-sync-conflict, .apple-sync-notice { color: var(--text-warning); }
+.apple-sync-day { margin: 20px 0; }
+.apple-sync-day h3 { color: var(--text-muted); font-size: var(--font-ui-small); margin: 0 0 8px; }
+.apple-sync-plan { display: flex; gap: 16px; padding: 14px 0; border-top: 1px solid var(--background-modifier-border); }
+.apple-sync-plan-time { min-width: 90px; color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: var(--font-small); padding-top: 2px; }
+.apple-sync-plan-body { min-width: 0; flex: 1; }
+.apple-sync-plan-body strong { display: block; margin-bottom: 6px; overflow-wrap: anywhere; }
+.apple-sync-reason { margin: 7px 0; }
+.apple-sync-plan-body .setting-item { border: 0; padding: 8px 0 0; }
+.apple-sync-plan-body .setting-item-info { display: none; }
+.apple-sync-plan-body .setting-item-control { justify-content: flex-start; }
+.apple-sync-plan-body select { max-width: 100%; }
 .apple-sync-source { border: 0; box-shadow: none; padding: 0; height: auto; background: transparent; color: var(--text-accent); font-size: var(--font-smallest); overflow-wrap: anywhere; text-align: left; }
 .apple-sync-source:hover { text-decoration: underline; background: transparent; }
-.apple-sync-issues { padding: 12px 16px; border-radius: 10px; background: var(--background-secondary); font-size: var(--font-small); }
+.apple-sync-recovery { border: 1px solid var(--background-modifier-border); padding: 10px 14px; border-radius: 10px; margin: 12px 0; }
+.apple-sync-recovery > strong { font-size: var(--font-small); }
+.apple-sync-recovery .setting-item { border: 0; padding: 5px 0; }
+.apple-sync-attention { border-color: var(--text-warning); }
+.apple-sync-result-item { border-top: 1px solid var(--background-modifier-border); padding: 10px 0; }
+.apple-sync-result-item > strong { font-size: var(--font-small); }
+@media (max-width: 600px) {
+    .apple-sync-modal { width: 96vw; }
+    .apple-sync-plan { display: block; }
+    .apple-sync-plan-time { margin-bottom: 8px; }
+    .apple-sync-custom-dates { display: block; }
+    .apple-sync-planner .setting-item { flex-wrap: wrap; gap: 8px; }
+    .apple-sync-planner .setting-item-control { max-width: 100%; }
+}

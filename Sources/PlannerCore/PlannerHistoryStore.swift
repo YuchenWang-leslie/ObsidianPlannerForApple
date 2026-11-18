@@ -9,10 +9,16 @@ public struct PlannerHistoryStore: Sendable {
         SHA256.hash(data: Data(vault.standardizedFileURL.path.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
-    public func load(vault: URL) throws -> [SyncRecord] {
+    public func load(vault: URL) throws -> [SyncRecord] { try read(vault: vault).records }
+
+    func read(vault: URL) throws -> (records: [SyncRecord], fingerprint: String) {
         let url = fileURL(vault: vault)
-        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
-        return try JSONDecoder().decode([SyncRecord].self, from: Data(contentsOf: url))
+        let data = FileManager.default.fileExists(atPath: url.path) ? try Data(contentsOf: url) : nil
+        let records = try data.map { try JSONDecoder().decode([SyncRecord].self, from: $0) } ?? []
+        var fingerprintData = Data(data == nil ? "missing".utf8 : "present".utf8)
+        fingerprintData.append(data ?? Data())
+        let fingerprint = SHA256.hash(data: fingerprintData).map { String(format: "%02x", $0) }.joined()
+        return (records, fingerprint)
     }
 
     public func save(_ records: [SyncRecord], vault: URL) throws {

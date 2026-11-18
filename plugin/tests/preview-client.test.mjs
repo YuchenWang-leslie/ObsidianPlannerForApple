@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { BridgeError, pairPlanner, previewPlanner, readCredential, removeCredential, defaultSyncOptions, validSyncOptions, validSourcePath } from '../src/bridge-client.ts';
 
 const input = { vaultPath: '/Example/P2 Vault', vaultName: 'Example vault', startDate: '2026-11-16', endDate: '2026-11-22', timeZone: 'Asia/Shanghai' };
-const credential = { vaultKey: 'a'.repeat(64), pairingToken: 'fake-test-token-not-a-real-credential' };
+const credential = { vaultKey: 'a'.repeat(64), pairingToken: 'fake-test-token-not-a-real-credential', allowSync: false };
 const clientPath = (root, path = input.vaultPath) => join(root, 'clients', `${createHash('sha256').update(path).digest('hex')}.json`);
 async function fixture(callback) {
     const root = await mkdtemp(join(tmpdir(), 'apple-sync-p2-'));
@@ -42,15 +42,15 @@ function result(options = defaultSyncOptions()) {
     const entries = ['create', 'update', 'unchanged', 'conflict'].map((action, index) => ({
         id: `plan-${index}`, filePath: '2026-11-18.md', line: index + 4, date: '2026-11-18', title: `Example ${action}`,
         start: `2026-11-18T0${index}:00:00Z`, end: `2026-11-18T0${index}:30:00Z`, startTime: `${String(index + 8).padStart(2, '0')}:00`, endTime: `${String(index + 8).padStart(2, '0')}:30`,
-        completed: false, action, selectedAction: action === 'create' ? 'create' : action === 'conflict' ? 'conflict' : 'skip', reason: `Example ${action} reason`,
+        completed: false, incomplete: false, action, selectedAction: action === 'create' ? 'create' : action === 'conflict' ? 'conflict' : 'skip', reason: `Example ${action} reason`,
     }));
     return { previewId: 'fake-preview-id', vaultKey: credential.vaultKey, vaultName: input.vaultName, startDate: input.startDate, endDate: input.endDate, timeZone: input.timeZone,
-        options, entries, issues: ['2026-11-18.md:12 unsupported example'], counts: { create: 1, update: 1, unchanged: 1, conflict: 1, skipped: 2 } };
+        options, entries, syncAllowed: false, linkCandidates: [], issues: ['2026-11-18.md:12 unsupported example'], counts: { create: 1, update: 1, unchanged: 1, conflict: 1, skipped: 2 } };
 }
 async function preview(root, value = result(), fields = {}, options = defaultSyncOptions()) {
     return previewPlanner(input, credential, options, { root, launch: async url => {
         const request = await requestFor(root, url, 'preview');
-        assert.deepEqual(request, { protocolVersion: 1, requestId: request.requestId, action: 'preview', ...input, ...credential, options });
+        assert.deepEqual(request, { protocolVersion: 1, requestId: request.requestId, action: 'preview', ...input, vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, options });
         await respond(root, request, 'previewReady', { preview: value, ...fields });
     } });
 }
@@ -75,7 +75,7 @@ test('pair waits for explicit pending confirmation and stores a private credenti
 }));
 test('same display name in different paths has separate credentials; rotation updates only the requested path', () => fixture(async root => {
     const second = { ...input, vaultPath: '/Example/Other Vault' };
-    const otherCredential = { vaultKey: 'b'.repeat(64), pairingToken: 'second-fake-token' };
+    const otherCredential = { vaultKey: 'b'.repeat(64), pairingToken: 'second-fake-token', allowSync: false };
     await pair(root); await pair(root, otherCredential, second);
     await pair(root, { ...credential, pairingToken: 'rotated-fake-token' });
     assert.equal((await readCredential(input.vaultPath, root)).pairingToken, 'rotated-fake-token');

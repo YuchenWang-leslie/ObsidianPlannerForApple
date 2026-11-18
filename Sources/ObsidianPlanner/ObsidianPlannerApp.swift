@@ -12,7 +12,9 @@ struct ObsidianPlannerApp: App {
         Window("ObsidianPlanner", id: "main") {
             ContentView(model: model).frame(minWidth: 760, minHeight: 660)
                 .onAppear {
-                    delegate.connect(reopen: { openWindow(id: "main") }, receive: { model.handleBridgeURL($0) })
+                    delegate.connect(reopen: { openWindow(id: "main") }, receive: { model.handleBridgeURL($0) }, refresh: {
+                        if !model.busy { model.refreshAccess(); model.refreshPairingStatus() }
+                    })
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
                 }
@@ -25,9 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var reopen: (() -> Void)?
     private var receive: ((URL) -> Void)?
     private var queuedURLs: [URL] = []
+    private var refresh: (() -> Void)?
 
-    func connect(reopen: @escaping () -> Void, receive: @escaping (URL) -> Void) {
-        self.reopen = reopen; self.receive = receive
+    func connect(reopen: @escaping () -> Void, receive: @escaping (URL) -> Void, refresh: @escaping () -> Void) {
+        self.reopen = reopen; self.receive = receive; self.refresh = refresh
         let pending = queuedURLs; queuedURLs = []
         for url in pending { receive(url) }
     }
@@ -39,6 +42,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         showWindow(application)
     }
+
+    func applicationDidBecomeActive(_ notification: Notification) { refresh?() }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         showWindow(sender)
@@ -64,7 +69,12 @@ final class PlannerModel: ObservableObject {
     @Published var bridgeNotice: String?
     var bridgeResponses: [UUID: BridgeOpenResponse] = [:]
     var bridgeRequests: [UUID: BridgeOpenRequest] = [:]
+    var bridgeResponseOrder: [UUID] = []
     @Published var pluginPaired = false
+    @Published var pluginCanSync = false
+    var lastSnapshot: PlannerPreviewSnapshot?
+    var bridgePreviews: [String: BridgePreviewContext] = [:]
+    var activeBridgeJobs: Set<UUID> = []
     var lastPreview: BridgePreview?
     @Published var authorized = false
     @Published var includeCalendar = false
@@ -108,14 +118,12 @@ final class PlannerModel: ObservableObject {
     }
     func refreshAccess() {
         authorized = EKEventStore.authorizationStatus(for: .reminder) == .fullAccess
-        if authorized {
-            // iCloud may expose separate sources for events and reminders with the same title.
-            // Derive each picker from that entity's writable calendars, never from all sources.
-            calendarSources = eligibleSources(for: .event)
-            reminderSources = eligibleSources(for: .reminder)
-            calendarSource = restoredSource(calendarSource, key: "calendarSource", available: calendarSources)
-            reminderSource = restoredSource(reminderSource, key: "reminderSource", available: reminderSources)
-        }
+        let eventsAllowed = EKEventStore.authorizationStatus(for: .event) == .fullAccess
+        // Each entity has its own iCloud source and permission. Missing permission is not a missing account.
+        reminderSources = authorized ? eligibleSources(for: .reminder) : []
+        calendarSources = eventsAllowed ? eligibleSources(for: .event) : []
+        reminderSource = authorized ? restoredSource(reminderSource, key: "reminderSource", available: reminderSources) : ""
+        calendarSource = eventsAllowed ? restoredSource(calendarSource, key: "calendarSource", available: calendarSources) : ""
     }
     private func eligibleSources(for type: EKEntityType) -> [EKSource] {
         let ids = Set(store.calendars(for: type).filter { $0.allowsContentModifications && $0.source.sourceType != .local }.map { $0.source.sourceIdentifier })
@@ -138,8 +146,8 @@ final class PlannerModel: ObservableObject {
     }
     func chooseVault(initialURL: URL? = nil) {
         let panel = NSOpenPanel()
-        panel.directoryURL = initialURL
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
+        panel.directoryURL = initialURL ?? vault
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let bookmark = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
@@ -154,7 +162,7 @@ final class PlannerModel: ObservableObject {
         scopedURL = access.startAccessingSecurityScopedResource() ? access : nil
         defaults.set(bookmark, forKey: "vaultBookmark"); vault = url
         entries = []; issues = []; syncActions = [:]; previewMatches = []; planChoices = [:]
-        conflicts = []; resolutions = [:]; linkCandidates = []; lastPreview = nil; syncSummary = ""
+        conflicts = []; resolutions = [:]; linkCandidates = []; lastPreview = nil; lastSnapshot = nil; syncSummary = ""
         refreshPairingStatus()
     }
     func bounds() throws -> (Date, Date, Calendar) {
@@ -185,10 +193,11 @@ final class PlannerModel: ObservableObject {
         linkCandidates = result.linkCandidates
         syncActions = Dictionary(uniqueKeysWithValues: result.matches.map { ($0.entry.id, $0.action.rawValue) })
         lastPreview = result.payload
+        lastSnapshot = result.snapshot
     }
     func preview() {
         let previousEntries = entries
-        entries = []; issues = []; syncActions = [:]; previewMatches = []; conflicts = []; lastPreview = nil
+        entries = []; issues = []; syncActions = [:]; previewMatches = []; conflicts = []; lastPreview = nil; lastSnapshot = nil
         do {
             let result = try PlannerPreviewEngine(history: historyStore).preview(try previewInput())
             defaults.set(zone, forKey: "timeZone")
@@ -284,7 +293,7 @@ struct ContentView: View {
                                     .font(.caption).foregroundStyle(.secondary)
                                 HStack {
                                     if request.action == "pair" {
-                                        Button("Pair this vault") { model.confirmBridgePairing() }
+                                        Button(request.allowSync == true ? "Allow preview & sync" : "Pair this vault") { model.confirmBridgePairing() }
                                             .buttonStyle(.borderedProminent)
                                             .disabled(!model.canConfirmBridgePairing)
                                     }
@@ -305,7 +314,7 @@ struct ContentView: View {
                         }
                         if model.pluginPaired {
                             HStack {
-                                Label("Plugin preview paired on this Mac", systemImage: "link")
+                                Label(model.pluginCanSync ? "Plugin paired for preview and sync" : "Plugin paired for preview only", systemImage: "link")
                                     .font(.caption).foregroundStyle(.secondary)
                                 Button("Revoke plugin pairing") { model.revokePluginPairing() }
                                     .controlSize(.small)
@@ -326,7 +335,7 @@ struct ContentView: View {
                             }
                             accountPicker("Reminders", selection: $model.reminderSource, sources: model.reminderSources)
                             Text("Choose your iCloud account. Exports go into DayPlanner.").font(.caption).foregroundStyle(.secondary)
-                            if (model.includeCalendar && model.calendarSources.isEmpty) || model.reminderSources.isEmpty {
+                            if (model.includeCalendar && EKEventStore.authorizationStatus(for: .event) == .fullAccess && model.calendarSources.isEmpty) || model.reminderSources.isEmpty {
                                 Text("No writable account found for one service. Enable iCloud Calendar and Reminders and create a list in the Apple app, then refresh.").font(.caption).foregroundStyle(.orange)
                             }
                         }

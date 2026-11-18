@@ -1,6 +1,6 @@
 import Foundation
 
-public enum PlanSyncChoice: String, CaseIterable, Sendable {
+public enum PlanSyncChoice: String, CaseIterable, Codable, Sendable {
     case skip, add, update, addAgain
 }
 

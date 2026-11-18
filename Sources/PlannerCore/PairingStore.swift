@@ -7,11 +7,23 @@ public struct VaultPairing: Codable, Equatable, Sendable {
     public let vaultPath: String
     public let vaultName: String
     public let bookmarkData: Data
+    public let allowSync: Bool
 
-    public init(vaultKey: String, pairingToken: String, vaultPath: String, vaultName: String, bookmarkData: Data) {
+    public init(vaultKey: String, pairingToken: String, vaultPath: String, vaultName: String, bookmarkData: Data, allowSync: Bool = false) {
         self.vaultKey = vaultKey; self.pairingToken = pairingToken; self.vaultPath = vaultPath
-        self.vaultName = vaultName; self.bookmarkData = bookmarkData
+        self.vaultName = vaultName; self.bookmarkData = bookmarkData; self.allowSync = allowSync
     }
+    private enum CodingKeys: String, CodingKey { case vaultKey, pairingToken, vaultPath, vaultName, bookmarkData, allowSync }
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        vaultKey = try container.decode(String.self, forKey: .vaultKey)
+        pairingToken = try container.decode(String.self, forKey: .pairingToken)
+        vaultPath = try container.decode(String.self, forKey: .vaultPath)
+        vaultName = try container.decode(String.self, forKey: .vaultName)
+        bookmarkData = try container.decode(Data.self, forKey: .bookmarkData)
+        allowSync = try container.decodeIfPresent(Bool.self, forKey: .allowSync) ?? false
+    }
+
 }
 
 public struct PairingStore: Sendable {
@@ -19,7 +31,7 @@ public struct PairingStore: Sendable {
     public init(root: URL) { self.root = root }
     private var file: URL { root.appendingPathComponent("pairings.json") }
 
-    public func pair(vault: URL, vaultName: String, bookmarkData: Data) throws -> VaultPairing {
+    public func pair(vault: URL, vaultName: String, bookmarkData: Data, allowSync: Bool = false) throws -> VaultPairing {
         var bytes = [UInt8](repeating: 0, count: 32)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
             throw BridgeError("Could not create a local pairing credential.")
@@ -27,7 +39,7 @@ public struct PairingStore: Sendable {
         let pairing = VaultPairing(vaultKey: PlannerHistoryStore.vaultKey(for: vault),
                                    pairingToken: Data(bytes).base64EncodedString(),
                                    vaultPath: vault.standardizedFileURL.path,
-                                   vaultName: vaultName, bookmarkData: bookmarkData)
+                                   vaultName: vaultName, bookmarkData: bookmarkData, allowSync: allowSync)
         var records = try load()
         records[pairing.vaultKey] = pairing
         try save(records)

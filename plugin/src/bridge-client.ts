@@ -5,29 +5,43 @@ import { randomUUID, createHash } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { validDate, validTimeZone } from './range.ts';
 import type { DateRange } from './range.ts';
+import { readRun, writeRun, runBlocksNewSync } from './run-store.ts';
+import type { RunPointer } from './run-store.ts';
+import { validateSelection } from './selection.ts';
+import type { PlanSelection } from './selection.ts';
+export { readRun, acknowledgeRun, runBlocksNewSync, runNeedsAcknowledgement } from './run-store.ts';
+export type { RunPointer } from './run-store.ts';
 
 export interface OpenInput extends DateRange { vaultPath: string; vaultName: string; timeZone: string }
 export interface OpenRequest extends OpenInput { protocolVersion: 1; requestId: string; action: 'open' }
 export type NotificationChannel = 'Reminders' | 'Calendar' | 'Both' | 'None';
 export interface SyncOptions { includeCalendar: boolean; notification: { channel: NotificationChannel; minutes: number } }
 export const defaultSyncOptions = (): SyncOptions => ({ includeCalendar: false, notification: { channel: 'Reminders', minutes: 10 } });
-export interface PairingCredential { vaultKey: string; pairingToken: string }
+export interface PairingCredential { vaultKey: string; pairingToken: string; allowSync?: boolean }
 export interface PreviewEntry {
     id: string; filePath: string; line: number; date: string; title: string;
     start: string; end: string; startTime: string; endTime: string; completed: boolean;
     action: 'create' | 'update' | 'unchanged' | 'conflict';
-    selectedAction: 'create' | 'skip' | 'conflict'; reason: string;
+    selectedAction: 'create' | 'skip' | 'conflict'; reason: string; incomplete: boolean;
 }
 export interface PreviewResult extends DateRange {
     previewId: string; vaultKey: string; vaultName: string; timeZone: string; options: SyncOptions;
-    entries: PreviewEntry[]; issues: string[];
+    entries: PreviewEntry[]; issues: string[]; syncAllowed: boolean;
+    linkCandidates: { id: string; date: string; title: string; startTime: string; endTime: string }[];
     counts: { create: number; update: number; unchanged: number; conflict: number; skipped: number };
 }
 interface BaseResponse { protocolVersion: 1; requestId: string; appVersion: string; message: string; errorCode?: string; capabilities?: string[] }
 export interface OpenResponse extends BaseResponse { status: 'opened' | 'needsVault' | 'busy' | 'failed' }
 export interface PairResponse extends BaseResponse { status: 'pending' | 'paired' | 'failed' | 'busy' | 'needsSetup'; pairing?: PairingCredential }
 export interface PreviewResponse extends BaseResponse { status: 'previewReady' | 'failed' | 'busy' | 'needsSetup'; preview?: PreviewResult }
-type WireResponse = BaseResponse & { status: string; pairing?: PairingCredential; preview?: PreviewResult };
+export interface SyncResult {
+    status: 'completed' | 'partial' | 'failed'; message: string; errorCode?: string;
+    counts: { calendarSaved: number; remindersSaved: number; skipped: number; failed: number; unresolved: number };
+    items: { entryId: string; title: string; date: string; action: 'create' | 'update' | 'addAgain' | 'skip' | 'conflict'; status: 'saved' | 'skipped' | 'failed' | 'unresolved'; calendarSaved: boolean; reminderSaved: boolean; message: string }[];
+}
+export interface SyncJob { requestId: string; previewId: string; vaultKey: string; status: string; createdAt: string; updatedAt: string; result?: SyncResult }
+export interface SyncResponse extends BaseResponse { status: 'running' | 'completed' | 'partial' | 'interrupted' | 'notFound' | 'failed' | 'busy' | 'needsSetup'; job?: SyncJob }
+type WireResponse = BaseResponse & { status: string; pairing?: PairingCredential; preview?: PreviewResult; job?: SyncJob };
 export interface BridgeOptions {
     root?: string;
     launch: (url: string) => Promise<void>;
@@ -35,18 +49,21 @@ export interface BridgeOptions {
     pollMs?: number;
     signal?: AbortSignal;
     onPending?: () => void;
+    onUpdate?: (response: SyncResponse) => void;
+    statusPollMs?: number;
+    statusTimeoutMs?: number;
 }
 export class BridgeError extends Error {
-    readonly code: 'APP_NOT_FOUND' | 'NO_CONFIRMATION' | 'INVALID_RESPONSE' | 'INVALID_CREDENTIAL';
+    readonly code: 'APP_NOT_FOUND' | 'NO_CONFIRMATION' | 'INVALID_RESPONSE' | 'INVALID_CREDENTIAL' | 'RUN_PENDING';
     constructor(code: BridgeError['code'], message: string) { super(message); this.code = code; }
 }
 export const bridgeRoot = () => join(homedir(), 'Library', 'Application Support', 'ObsidianPlanner', 'Bridge');
 const missing = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT';
-const invalidResponse = () => new BridgeError('INVALID_RESPONSE', 'The Mac app returned an incompatible response. Install the matching P2 companion app.');
+const invalidResponse = () => new BridgeError('INVALID_RESPONSE', 'The Mac app returned an incompatible response. Install ObsidianPlanner 0.5.0 or a compatible companion app.');
 const credentialValid = (value: unknown): value is PairingCredential => {
     const candidate = value as Partial<PairingCredential> | null;
     return !!candidate && typeof candidate.vaultKey === 'string' && /^[a-f0-9]{64}$/.test(candidate.vaultKey) &&
-        typeof candidate.pairingToken === 'string' && candidate.pairingToken.length > 0 && candidate.pairingToken.trim() === candidate.pairingToken;
+        typeof candidate.pairingToken === 'string' && candidate.pairingToken.length > 0 && candidate.pairingToken.trim() === candidate.pairingToken && (candidate.allowSync === undefined || typeof candidate.allowSync === 'boolean');
 };
 
 export function validSyncOptions(value: unknown): value is SyncOptions {
@@ -72,7 +89,7 @@ function validEntry(value: unknown): value is PreviewEntry {
         typeof entry.startTime === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(entry.startTime) &&
         typeof entry.endTime === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(entry.endTime) &&
         typeof entry.completed === 'boolean' && ['create', 'update', 'unchanged', 'conflict'].includes(entry.action) &&
-        ['create', 'skip', 'conflict'].includes(entry.selectedAction) && typeof entry.reason === 'string';
+        ['create', 'skip', 'conflict'].includes(entry.selectedAction) && typeof entry.reason === 'string' && (entry.incomplete === undefined || typeof entry.incomplete === 'boolean');
 }
 function validatePreview(value: unknown, input: OpenInput, credential: PairingCredential, options: SyncOptions): asserts value is PreviewResult {
     const result = value as PreviewResult | null;
@@ -88,6 +105,15 @@ function validatePreview(value: unknown, input: OpenInput, credential: PairingCr
         if (result.counts[action] !== result.entries.filter(entry => entry.action === action).length) throw invalidResponse();
     }
     if (result.counts.skipped !== result.entries.filter(entry => entry.selectedAction === 'skip').length) throw invalidResponse();
+    if (result.syncAllowed !== undefined && typeof result.syncAllowed !== 'boolean') throw invalidResponse();
+    const candidates = result.linkCandidates ?? [];
+    if (!Array.isArray(candidates) || !candidates.every(candidate => candidate && typeof candidate.id === 'string' && !!candidate.id &&
+        typeof candidate.date === 'string' && validDate(candidate.date) && typeof candidate.title === 'string' &&
+        /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(candidate.startTime) && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(candidate.endTime)) ||
+        new Set(candidates.map(candidate => candidate.id)).size !== candidates.length) throw invalidResponse();
+    result.syncAllowed = result.syncAllowed === true;
+    result.linkCandidates = candidates;
+    for (const entry of result.entries) entry.incomplete = entry.incomplete === true;
 }
 function validateResponse(raw: unknown, id: string, allowed: string[]): WireResponse {
     const response = raw as Partial<WireResponse> | null;
@@ -111,7 +137,7 @@ export async function readCredential(vaultPath: string, root = bridgeRoot()): Pr
         try { saved = JSON.parse(text); }
         catch { throw new BridgeError('INVALID_CREDENTIAL', 'The local vault credential is unavailable. Pair this vault again.'); }
         if (!credentialValid(saved) || (saved as PairingCredential & { vaultPath?: string }).vaultPath !== vaultPath) throw new BridgeError('INVALID_CREDENTIAL', 'The local vault credential is unavailable. Pair this vault again.');
-        return { vaultKey: saved.vaultKey, pairingToken: saved.pairingToken };
+        return { vaultKey: saved.vaultKey, pairingToken: saved.pairingToken, allowSync: saved.allowSync === true };
     } catch (error) { if (missing(error)) return null; throw error; }
 }
 export async function removeCredential(vaultPath: string, root = bridgeRoot()): Promise<void> { await rm(credentialPath(vaultPath, root), { force: true }); }
@@ -121,9 +147,9 @@ async function saveCredential(vaultPath: string, credential: PairingCredential, 
     try { await writeFile(temporary, JSON.stringify({ vaultPath, ...credential }), { mode: 0o600, flag: 'wx' }); await rename(temporary, target); }
     finally { await rm(temporary, { force: true }); }
 }
-async function send(input: OpenInput, action: 'open' | 'pair' | 'preview', extra: object, allowed: string[], options: BridgeOptions): Promise<WireResponse> {
+async function send(input: OpenInput, action: 'open' | 'pair' | 'preview' | 'sync' | 'status', extra: object, allowed: string[], options: BridgeOptions, requestId?: string): Promise<WireResponse> {
     validateInput(input); options.signal?.throwIfAborted();
-    const root = options.root ?? bridgeRoot(), id = randomUUID().toLowerCase();
+    const root = options.root ?? bridgeRoot(), id = requestId ?? randomUUID().toLowerCase();
     const requestPath = join(root, 'inbox', `${id}.json`), temporaryPath = `${requestPath}.tmp`, responsePath = join(root, 'outbox', `${id}.json`);
     const request = { protocolVersion: 1, requestId: id, action, ...input, ...extra };
     for (const dir of [root, join(root, 'inbox'), join(root, 'outbox')]) await privateDir(dir);
@@ -146,7 +172,9 @@ async function send(input: OpenInput, action: 'open' | 'pair' | 'preview', extra
             } catch (error) { if (!missing(error)) throw error; }
             await delay(options.pollMs ?? 150, undefined, { signal: options.signal });
         }
-        throw new BridgeError('NO_CONFIRMATION', action === 'pair'
+        throw new BridgeError('NO_CONFIRMATION', action === 'sync' || action === 'status'
+            ? 'No confirmed sync result. The native job may still be running. Use Check last sync; do not submit the batch again.'
+            : action === 'pair'
             ? 'Pairing was not confirmed before the timeout. Check the Mac app and pair again manually. No sync was performed.'
             : 'The Mac app did not confirm the request. It may be missing, still starting, or too old. Install the matching companion app and check its window. No sync was reported.');
     } finally { await Promise.all([requestPath, temporaryPath, responsePath].map(path => rm(path, { force: true }))); }
@@ -154,10 +182,11 @@ async function send(input: OpenInput, action: 'open' | 'pair' | 'preview', extra
 export async function openPlanner(input: OpenInput, options: BridgeOptions): Promise<OpenResponse> {
     return await send(input, 'open', {}, ['opened', 'needsVault', 'busy', 'failed'], options) as OpenResponse;
 }
-export async function pairPlanner(input: OpenInput, options: BridgeOptions): Promise<PairResponse> {
-    const response = await send(input, 'pair', {}, ['pending', 'paired', 'failed', 'busy', 'needsSetup'], options) as PairResponse;
+export async function pairPlanner(input: OpenInput, options: BridgeOptions, allowSync = false): Promise<PairResponse> {
+    const response = await send(input, 'pair', allowSync ? { allowSync: true } : {}, ['pending', 'paired', 'failed', 'busy', 'needsSetup'], options) as PairResponse;
     if (response.status === 'paired') {
         if (!credentialValid(response.pairing)) throw invalidResponse();
+        response.pairing.allowSync = response.pairing.allowSync === true;
         await saveCredential(input.vaultPath, response.pairing, options.root ?? bridgeRoot());
     }
     return response;
@@ -165,8 +194,85 @@ export async function pairPlanner(input: OpenInput, options: BridgeOptions): Pro
 export async function previewPlanner(input: OpenInput, credential: PairingCredential, syncOptions: SyncOptions, options: BridgeOptions): Promise<PreviewResponse> {
     if (!credentialValid(credential)) throw new BridgeError('INVALID_CREDENTIAL', 'Pair this vault before requesting a preview.');
     if (!validSyncOptions(syncOptions)) throw new Error('Choose valid destination and notification settings. Calendar notifications require calendar export.');
-    const response = await send(input, 'preview', { ...credential, options: syncOptions }, ['previewReady', 'failed', 'busy', 'needsSetup'], options) as PreviewResponse;
+    const response = await send(input, 'preview', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, options: syncOptions }, ['previewReady', 'failed', 'busy', 'needsSetup'], options) as PreviewResponse;
     if (response.status === 'previewReady') validatePreview(response.preview, input, credential, syncOptions);
     if (response.errorCode === 'VAULT_NOT_PAIRED') await removeCredential(input.vaultPath, options.root ?? bridgeRoot());
+    return response;
+}
+
+const syncStatuses = ['running', 'completed', 'partial', 'interrupted', 'notFound', 'failed', 'busy', 'needsSetup'];
+function validateJob(response: SyncResponse, requestId: string, vaultKey: string, previewId?: string): void {
+    const job = response.job;
+    if (!job) {
+        if (['running', 'completed', 'partial', 'interrupted'].includes(response.status)) throw invalidResponse();
+        return;
+    }
+    if (typeof job.requestId !== 'string' || job.requestId.toLowerCase() !== requestId || job.vaultKey !== vaultKey || (previewId && job.previewId !== previewId) ||
+        typeof job.previewId !== 'string' || job.status !== response.status || !syncStatuses.includes(job.status) || typeof job.createdAt !== 'string' || typeof job.updatedAt !== 'string' || !Number.isFinite(Date.parse(job.createdAt)) || !Number.isFinite(Date.parse(job.updatedAt))) throw invalidResponse();
+    const result = job.result;
+    if (!result) { if (['completed', 'partial'].includes(response.status)) throw invalidResponse(); return; }
+    if (!['completed', 'partial', 'failed'].includes(result.status) || typeof result.message !== 'string' ||
+        (result.errorCode !== undefined && typeof result.errorCode !== 'string') || !result.counts ||
+        !['calendarSaved', 'remindersSaved', 'skipped', 'failed', 'unresolved'].every(key => Number.isInteger(result.counts[key as keyof SyncResult['counts']]) && result.counts[key as keyof SyncResult['counts']] >= 0) ||
+        !Array.isArray(result.items) || !result.items.every(item => item && typeof item.entryId === 'string' && typeof item.title === 'string' &&
+            typeof item.date === 'string' && validDate(item.date) && ['create', 'update', 'addAgain', 'skip', 'conflict'].includes(item.action) &&
+            ['saved', 'skipped', 'failed', 'unresolved'].includes(item.status) && typeof item.calendarSaved === 'boolean' && typeof item.reminderSaved === 'boolean' && typeof item.message === 'string')) throw invalidResponse();
+}
+async function recordResponse(run: RunPointer, response: SyncResponse, root: string): Promise<RunPointer> {
+    run.status = !response.job && ['busy', 'needsSetup'].includes(response.status) ? 'failed'
+        : ['running', 'completed', 'partial', 'failed', 'interrupted', 'notFound'].includes(response.status) ? response.status as RunPointer['status'] : 'unconfirmed';
+    // Persist only the job DTO, never unexpected transport fields or credentials.
+    const safe: SyncResponse = { protocolVersion: 1, requestId: response.requestId, status: response.status, appVersion: response.appVersion, message: response.message };
+    if (response.errorCode !== undefined) safe.errorCode = response.errorCode;
+    if (response.capabilities) safe.capabilities = [...response.capabilities];
+    if (response.job) {
+        const job = response.job;
+        safe.job = { requestId: job.requestId, previewId: job.previewId, vaultKey: job.vaultKey, status: job.status, createdAt: job.createdAt, updatedAt: job.updatedAt };
+        if (job.result) {
+            const result = job.result;
+            safe.job.result = { status: result.status, message: result.message, ...(result.errorCode !== undefined ? { errorCode: result.errorCode } : {}),
+                counts: { calendarSaved: result.counts.calendarSaved, remindersSaved: result.counts.remindersSaved, skipped: result.counts.skipped, failed: result.counts.failed, unresolved: result.counts.unresolved },
+                items: result.items.map(item => ({ entryId: item.entryId, title: item.title, date: item.date, action: item.action, status: item.status, calendarSaved: item.calendarSaved, reminderSaved: item.reminderSaved, message: item.message })) };
+        }
+    }
+    run.response = safe;
+    await writeRun(run, root);
+    return run;
+}
+export async function syncPlanner(input: OpenInput, credential: PairingCredential, syncOptions: SyncOptions, preview: PreviewResult, selection: PlanSelection, options: BridgeOptions): Promise<SyncResponse> {
+    validateInput(input);
+    if (!credentialValid(credential) || credential.allowSync !== true || !preview.syncAllowed) throw new Error('This pairing is preview-only. Pair again with sync access and confirm it in the Mac app.');
+    validatePreview(preview, input, credential, syncOptions); validateSelection(preview, selection);
+    options.signal?.throwIfAborted();
+    const root = options.root ?? bridgeRoot(), previous = await readRun(input.vaultPath, root);
+    if (previous && runBlocksNewSync(previous)) throw new BridgeError('RUN_PENDING', 'A previous sync is unconfirmed or still running. Check last sync; do not submit it again.');
+    const run: RunPointer = { version: 1, vaultPath: input.vaultPath, input: { ...input }, options: syncOptions, requestId: randomUUID().toLowerCase(), previewId: preview.previewId,
+        vaultKey: credential.vaultKey, createdAt: new Date().toISOString(), status: 'unconfirmed', acknowledged: false };
+    // Persist before even opening the App: a lost response must never cause resubmission.
+    await writeRun(run, root);
+    const response = await send(input, 'sync', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, options: syncOptions, previewId: preview.previewId,
+        choices: selection.choices, resolutions: selection.resolutions }, syncStatuses, options, run.requestId) as SyncResponse;
+    validateJob(response, run.requestId, credential.vaultKey, preview.previewId);
+    await recordResponse(run, response, root);
+    return response;
+}
+export async function statusPlanner(input: OpenInput, credential: PairingCredential, syncRequestId: string, options: BridgeOptions): Promise<SyncResponse> {
+    if (!credentialValid(credential) || !/^[a-f0-9-]{36}$/.test(syncRequestId)) throw new Error('Pair this vault and choose a valid saved sync record before checking status.');
+    const response = await send(input, 'status', { vaultKey: credential.vaultKey, pairingToken: credential.pairingToken, syncRequestId }, syncStatuses, options) as SyncResponse;
+    const root = options.root ?? bridgeRoot(), run = await readRun(input.vaultPath, root);
+    validateJob(response, syncRequestId, credential.vaultKey, run?.requestId === syncRequestId ? run.previewId : undefined);
+    if (run?.requestId === syncRequestId) await recordResponse(run, response, root);
+    return response;
+}
+export async function waitForRun(run: RunPointer, credential: PairingCredential, options: BridgeOptions): Promise<SyncResponse | null> {
+    const deadline = Date.now() + (options.statusTimeoutMs ?? 60000);
+    let response: SyncResponse | null = null;
+    do {
+        options.signal?.throwIfAborted();
+        response = await statusPlanner(run.input, credential, run.requestId, options);
+        options.onUpdate?.(response);
+        if (response.status !== 'running') return response;
+        await delay(options.statusPollMs ?? 1200, undefined, { signal: options.signal });
+    } while (Date.now() < deadline);
     return response;
 }

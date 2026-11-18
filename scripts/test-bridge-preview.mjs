@@ -24,7 +24,7 @@ const response = await previewPlanner({ vaultPath: values.vault, vaultName: base
     launch: url => execute('/usr/bin/open', [url]).then(() => undefined),
 });
 assert.equal(response.status, values.expect ?? 'previewReady', response.message);
-assert.equal(response.appVersion, '0.4.0');
+assert.equal(response.appVersion, '0.5.0');
 assert.deepEqual(await histories(), before, 'Read-only preview changed a sync-history file.');
 if (response.preview) {
     if (values.output) await writeFile(values.output, JSON.stringify(response.preview, null, 2), { mode: 0o600 });

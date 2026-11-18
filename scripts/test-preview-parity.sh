@@ -21,12 +21,13 @@ let result = try PlannerPreviewEngine(history: PlannerHistoryStore(root: history
 func comparable(_ value: BridgePreview) throws -> Data {
     var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as! [String: Any]
     object.removeValue(forKey: "previewId")
+    object.removeValue(forKey: "syncAllowed")
     return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
 }
 let actual = try comparable(native)
 let expected = try comparable(result.payload)
 precondition(actual == expected, "Native bridge preview differs from shared engine")
-print("PASS P2 parity: complete bridge payload matches shared Swift engine (excluding per-preview ID).")
+print("PASS P2 parity: complete bridge payload matches shared Swift engine (excluding preview ID and pairing scope).")
 SWIFT
 swiftc Sources/PlannerCore/*.swift "$parity_dir/main.swift" -o "$parity_dir/preview-parity"
 "$parity_dir/preview-parity" "$1" "$2"

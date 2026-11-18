@@ -4,6 +4,8 @@ public enum BridgeRoute: Equatable, Sendable {
     case open(UUID)
     case pair(UUID)
     case preview(UUID)
+    case sync(UUID)
+    case status(UUID)
     case reference
     case unsupported(String)
     case ignored
@@ -16,10 +18,10 @@ public enum BridgeRouter {
             return .unsupported("Invalid bridge URL.")
         }
         if components.host?.lowercased() == "sync" { return .reference }
-        guard components.host?.lowercased() == "bridge", ["/open", "/pair", "/preview"].contains(components.path),
+        guard components.host?.lowercased() == "bridge", ["/open", "/pair", "/preview", "/sync", "/status"].contains(components.path),
               components.user == nil, components.password == nil, components.port == nil,
               components.fragment == nil else {
-            return .unsupported("This app supports bridge/open, bridge/pair and bridge/preview requests.")
+            return .unsupported("Unsupported bridge action.")
         }
         let items = components.queryItems ?? []
         guard items.count == 2, Set(items.map(\.name)) == ["protocol", "requestId"] else {
@@ -35,6 +37,8 @@ public enum BridgeRouter {
         switch components.path {
         case "/pair": return .pair(id)
         case "/preview": return .preview(id)
+        case "/sync": return .sync(id)
+        case "/status": return .status(id)
         default: return .open(id)
         }
     }
@@ -58,24 +62,40 @@ public struct BridgeOpenRequest: Codable, Equatable, Sendable {
     public var vaultKey: String?
     public var pairingToken: String?
     public var options: PlannerOptions?
+    public var allowSync: Bool?
+    public var previewId: String?
+    public var choices: [String: PlanSyncChoice]?
+    public var resolutions: [String: String]?
+    public var syncRequestId: String?
 
     public init(protocolVersion: Int = 1, requestId: String, action: String = "open", vaultPath: String,
                 vaultName: String, startDate: String, endDate: String, timeZone: String,
-                vaultKey: String? = nil, pairingToken: String? = nil, options: PlannerOptions? = nil) {
+                vaultKey: String? = nil, pairingToken: String? = nil, options: PlannerOptions? = nil,
+                allowSync: Bool? = nil, previewId: String? = nil, choices: [String: PlanSyncChoice]? = nil,
+                resolutions: [String: String]? = nil, syncRequestId: String? = nil) {
         self.protocolVersion = protocolVersion; self.requestId = requestId; self.action = action
         self.vaultPath = vaultPath; self.vaultName = vaultName
         self.startDate = startDate; self.endDate = endDate; self.timeZone = timeZone
         self.vaultKey = vaultKey; self.pairingToken = pairingToken; self.options = options
+        self.allowSync = allowSync; self.previewId = previewId; self.choices = choices
+        self.resolutions = resolutions; self.syncRequestId = syncRequestId
     }
 
     public func validate(expectedID: UUID, expectedAction: String = "open") throws {
-        guard protocolVersion == 1, action == expectedAction, ["open", "pair", "preview"].contains(action) else {
+        guard protocolVersion == 1, action == expectedAction, ["open", "pair", "preview", "sync", "status"].contains(action) else {
             throw BridgeError("Unsupported bridge protocol or action.")
         }
-        if action == "preview" {
-            guard let vaultKey, !vaultKey.isEmpty, let pairingToken, !pairingToken.isEmpty, options != nil else {
-                throw BridgeError("Preview requires a paired vault and preview options.")
+        if ["preview", "sync", "status"].contains(action) {
+            guard let vaultKey, !vaultKey.isEmpty, let pairingToken, !pairingToken.isEmpty else {
+                throw BridgeError("This request requires a paired vault.")
             }
+        }
+        if ["preview", "sync"].contains(action), options == nil { throw BridgeError("Preview and sync require options.") }
+        if action == "sync" {
+            guard let previewId, UUID(uuidString: previewId) != nil else { throw BridgeError("Sync requires a valid preview ID.") }
+        }
+        if action == "status" {
+            guard let syncRequestId, UUID(uuidString: syncRequestId) != nil else { throw BridgeError("Status requires a valid sync request ID.") }
         }
         try options?.validate()
         guard UUID(uuidString: requestId) == expectedID else { throw BridgeError("Request ID does not match its file name.") }
@@ -102,12 +122,13 @@ public struct BridgeOpenResponse: Codable, Equatable, Sendable {
     public var pairing: BridgePairing?
     public var preview: BridgePreview?
     public var capabilities: [String]?
+    public var job: BridgeJob?
 
     public init(protocolVersion: Int = 1, requestId: String, status: String, appVersion: String, message: String,
-                errorCode: String? = nil, pairing: BridgePairing? = nil, preview: BridgePreview? = nil, capabilities: [String]? = nil) {
+                errorCode: String? = nil, pairing: BridgePairing? = nil, preview: BridgePreview? = nil, capabilities: [String]? = nil, job: BridgeJob? = nil) {
         self.protocolVersion = protocolVersion; self.requestId = requestId
         self.status = status; self.appVersion = appVersion; self.message = message
-        self.errorCode = errorCode; self.pairing = pairing; self.preview = preview; self.capabilities = capabilities
+        self.errorCode = errorCode; self.pairing = pairing; self.preview = preview; self.capabilities = capabilities; self.job = job
     }
 }
 
@@ -133,6 +154,16 @@ public struct BridgeFiles: Sendable {
         defer { try? handle.close() }
         let data = try handle.read(upToCount: 65_537) ?? Data()
         guard data.count <= 65_536 else { throw BridgeError("Bridge request exceeds the 64 KB limit.") }
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw BridgeError("Request must be a JSON object.") }
+        let fields: Set<String> = ["protocolVersion", "requestId", "action", "vaultPath", "vaultName", "startDate", "endDate", "timeZone",
+                                   "vaultKey", "pairingToken", "options", "allowSync", "previewId", "choices", "resolutions", "syncRequestId"]
+        guard Set(object.keys).isSubset(of: fields) else { throw BridgeError("Unknown bridge request field.") }
+        if let options = object["options"] as? [String: Any] {
+            guard Set(options.keys).isSubset(of: ["includeCalendar", "notification"]) else { throw BridgeError("Unknown options field.") }
+            if let notification = options["notification"] as? [String: Any], !Set(notification.keys).isSubset(of: ["channel", "minutes"]) {
+                throw BridgeError("Unknown notification field.")
+            }
+        }
         let request = try JSONDecoder().decode(BridgeOpenRequest.self, from: data)
         try request.validate(expectedID: id, expectedAction: action)
         return request
@@ -140,7 +171,7 @@ public struct BridgeFiles: Sendable {
 
     public func writeResponse(_ response: BridgeOpenResponse, id: UUID) throws {
         guard response.protocolVersion == 1, UUID(uuidString: response.requestId) == id,
-              ["opened", "needsVault", "busy", "failed", "pending", "paired", "previewReady", "needsSetup"].contains(response.status) else {
+              ["opened", "needsVault", "busy", "failed", "pending", "paired", "previewReady", "needsSetup", "running", "completed", "partial", "interrupted", "notFound"].contains(response.status) else {
             throw BridgeError("Invalid bridge response version, request ID, or status.")
         }
         for directory in [root, root.appendingPathComponent("inbox", isDirectory: true), root.appendingPathComponent("outbox", isDirectory: true)] {

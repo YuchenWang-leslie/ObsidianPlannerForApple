@@ -1,8 +1,8 @@
 {
   "name": "day-planner-apple-sync",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Pair this Obsidian vault with ObsidianPlanner on Mac and preview Day Planner schedules. Requires the companion Mac app.",
+  "description": "Preview and selectively sync Day Planner schedules with Apple Reminders and Calendar through the companion Mac app.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {

@@ -7,7 +7,7 @@ func runBridgeTests() {
     XCTAssertEqual(BridgeRouter.route(URL(string: "https://bridge/open?\(query)")!), .ignored)
     XCTAssertEqual(BridgeRouter.route(URL(string: "obsidianplanner://sync/vault/task?\(query)")!), .reference)
     for value in [
-        "obsidianplanner://bridge/sync?\(query)",
+        "obsidianplanner://bridge/delete?\(query)",
         "obsidianplanner://bridge/open?protocol=2&requestId=\(id.uuidString)",
         "obsidianplanner://bridge/open?protocol=1&requestId=bad",
         "obsidianplanner://bridge/open?protocol=1",
@@ -74,7 +74,7 @@ func runBridgeTests() {
     try! files.writeResponse(updatedResponse, id: id)
     XCTAssertEqual(try! JSONDecoder().decode(BridgeOpenResponse.self, from: Data(contentsOf: files.responseURL(id: id))), updatedResponse)
     rejects { _ = try files.readRequest(id: UUID()) }
-    var invalidResponse = response; invalidResponse.status = "completed"
+    var invalidResponse = response; invalidResponse.status = "deleted"
     rejects { try files.writeResponse(invalidResponse, id: id) }
     rejects { try files.writeResponse(response, id: UUID()) }
     try! Data(repeating: 32, count: 65_537).write(to: files.requestURL(id: id))

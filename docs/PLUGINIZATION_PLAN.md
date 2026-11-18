@@ -2,7 +2,7 @@
 
 计划日期：2026-10-29 · 实施更新：2026-11-18
 
-当前进度：P0、P1、P2 已完成。P0 通过真实账户及用户 iPhone／通知确认；P1 通过唤起测试；P2 通过本机配对、共享预览核心、Obsidian 结果展示及只读验收。逐项结果及边界见 [阶段记录](PLUGINIZATION_PROGRESS.md)。P3–P5 仍为计划。
+当前进度：P0–P2 已完成；P3–P5 的实现、自动测试及候选发行包已完成，正在进行新版真实写入和安装验收。未经实际检查的项目不计为通过。逐项结果及边界见 [阶段记录](PLUGINIZATION_PROGRESS.md)。
 
 本文件作为后续开发的任务顺序、范围和验收依据。现有 Mac App 继续可独立使用；插件作为它的 Obsidian 操作入口。先验证本机通信，再逐步迁移操作界面。遵循轻量实现原则，不提前引入服务器、数据库或通用插件框架。
 
@@ -65,7 +65,9 @@ flowchart LR
 
 第一版沿用 App 已授权目录读取日记。插件只传日期、时区、通知选项和 Vault 身份；不要复制整篇笔记到通信目录。用户应先保存编辑；实现时核实 Obsidian 保存行为，不能假设 API 读取的最新文本已立即落盘。若磁盘内容不一致，提示重新预览，后续再考虑按文件快照传输。
 
-**P2 已实现配对及预览回传。** 保留协议 1 和 P1 open，新增 pair／preview。配对必须在 App 明确确认，凭据按 Vault 保存于 Mac 私有目录，不进入 Vault；原生 Preview 和插件预览共用 Foundation-only 执行入口及既有历史。插件展示分组结果、匹配／默认跳过状态、格式问题和源日记定位。具体冻结协议见 [P2 本机预览协议](PLUGIN_BRIDGE_P2.md)。P3 sync 尚未开放。
+**P2 已实现配对及预览回传。** 保留协议 1 和 P1 open，新增 pair／preview。配对必须在 App 明确确认，凭据按 Vault 保存于 Mac 私有目录，不进入 Vault；原生 Preview 和插件预览共用 Foundation-only 执行入口及既有历史。插件展示分组结果、匹配／默认跳过状态、格式问题和源日记定位。历史协议见 [P2 本机预览协议](PLUGIN_BRIDGE_P2.md)。
+
+**P3 已实现显式同步和状态查询。** sync／status 使用同一私有文件通道；新配对须明确允许 preview + sync，旧 P2 配对仍只读。App 和插件共用执行器、历史和忙碌状态；预览快照在实际写入前复核。逐条选择、结果收据、超时查询和恢复边界见 [P3 协议](PLUGIN_BRIDGE_P3.md)。
 
 **已有 URL 命名冲突：** 当前条目 URL 使用 `obsidianplanner://sync/<vaultKey>/<taskId>` 保存身份。新增 scheme 注册后，这些链接可能被用户点击。只有 `bridge` 主机及受支持动作才允许进入请求流程；`sync` 仅识别为条目链接，不触发同步、不创建或删除对象。两类 URL 必须有分开的测试。
 
@@ -81,31 +83,34 @@ flowchart LR
 
 这不是对恶意 Obsidian 插件的强隔离机制：同用户进程通常可访问用户文件。这里只避免任意网页深链接直接触发账户写入，不宣称建立完整安全边界。
 
-## 4. 协议安排（P2 已冻结，P3 仍为草案）
+## 4. 已实现的协议安排
 
-P2 已实现字段、配对流程和响应以 [P2 协议](PLUGIN_BRIDGE_P2.md) 为准。以下表格保留后续写入阶段的草案，不能据此调用尚未开放的 sync／resolve／status 动作。
+当前协议以 [P3 协议](PLUGIN_BRIDGE_P3.md) 为准。保留 P1/P2 入口；冲突决策随 sync 传入，没有单独的 resolve 动作。
 
-拟议请求字段：
+主要请求字段：
 
 | 字段 | 含义 |
 | --- | --- |
 | `protocolVersion` | 独立于 App／插件版本的协议版本，首版为 1 |
 | `requestId` | 每次用户操作生成的 UUID；重发沿用相同 ID |
-| `action` | 已开放 `open`、`pair`、`preview`；`sync`、`resolve`、`status` 留到后续阶段 |
+| `action` | `open`、`pair`、`preview`、`sync`、`status` |
 | `vaultKey` | 来自配对，必须匹配 App 已确认的来源 |
 | `pairingToken` | 本机配对凭据，不进入回显、日志或 URL |
 | `startDate`, `endDate` | YYYY-MM-DD，起止均包含 |
 | `timeZone` | IANA 标识，例如 Asia/Shanghai |
-| `includeCalendar` | 默认 false |
-| `notification` | 渠道和提前分钟数，默认 Reminders / 10 |
-| `previewId` | sync／resolve 引用的预览身份，防止确认后来源变化 |
-| `resolutions` | 仅传已预览条目的关联／新建／跳过选择 |
+| `allowSync` | pair 明确申请同步权限，缺省 false；以原生保存的授权为准 |
+| `options.includeCalendar` | 默认 false |
+| `options.notification` | 渠道和提前分钟数，默认 Reminders / 10 |
+| `previewId` | sync 引用已审阅预览，30 分钟或 App 重启后过期 |
+| `choices` | 逐条 Add／Skip／Update／Add again |
+| `resolutions` | 冲突条目的关联／新建／跳过选择 |
+| `syncRequestId` | status 查询的原同步 UUID；查询本身使用新的 requestId |
 
 相对周范围在点击时转为日程时区的绝对日期。通知选项和 App 使用同一组合法值，日历关闭时不能选择 Calendar-only 通知。
 
-拟议响应：`protocolVersion, requestId, status, appVersion, previewId, entries, issues, counts`。按需要返回，不把 App 的完整历史暴露给插件。
+响应公共字段为 `protocolVersion, requestId, status, appVersion, message`，按动作携带 pairing／preview／job，不把 App 的完整历史暴露给插件。
 
-- 状态区别：`pending`、`needsSetup`、`previewReady`、`completed`、`partial`、`failed`、`busy`。
+- 状态区别：`pending`、`paired`、`needsSetup`、`previewReady`、`running`、`completed`、`partial`、`failed`、`busy`、`interrupted`、`notFound`。
 - 明确错误码：`APP_SETUP_REQUIRED`、`PERMISSION_REQUIRED`、`VAULT_NOT_PAIRED`、`UNSUPPORTED_PROTOCOL`、`SOURCE_CHANGED`。
 - 每条预览返回稳定的本次定位、标题、日期时间、动作和冲突原因；仍以 Swift 的判断为准。
 - 执行中按请求 ID 标记；同一请求不重复执行。App 和插件共用一个执行队列，忙时返回状态。
@@ -237,15 +242,15 @@ P2 另提供 `scripts/test-bridge-preview.mjs` 验证已配对的原生预览及
 
 依赖尽量使用官方 Obsidian API、TypeScript 和少量构建工具。运行时依赖及素材要核对其许可证；不得把本项目限制错误地覆盖第三方自身的授权。
 
-P0 的当前账户环境回归、P1 唤起、P2 配对路径与凭据、只读预览和两端一致性均已验证。未保存编辑的即时落盘、跨版本运行及跨崩溃恢复仍待后续验证；当前要求先保存编辑。尚待后续决定：是否把账户设置也搬到插件，以及是否需要自动同步。
+P0 的当前账户环境回归、P1 唤起、P2 配对路径与凭据、只读预览和两端一致性均已验证。当前仍要求先保存编辑；没有跨崩溃严格只执行一次的保证。其他 macOS／Obsidian 版本的兼容性待验证。是否把账户设置搬到插件、是否自动同步，均不属于本次范围。
 
-## 9. 继续开发从哪里开始
+## 9. 当前交付与后续范围
 
-1. 用户体验测试 Vault 中的 P2，核对预览、源定位及只读范围。
-2. 用户要求继续时，再冻结 P3 的预览快照确认、逐条选择和显式写入协议；不能直接把 P2 的预览请求改成自动同步。
-3. 复用 P0 的账户回归样例和现有历史，不重置历史处理冲突。保留现有匹配器的保守规则，涉及匹配行为的改动应另行验证。
+1. 按阶段记录完成新版测试 Vault 的权限、逐条同步、iPhone 到达和通知验收，再发布候选安装包。
+2. 分发采用现有 GitHub 仓库的手动安装测试版；社区目录、新仓库、付费签名和公证不在本次范围。
+3. 继续保留既有历史及匹配器的保守规则，不通过重置历史解决冲突。后续匹配策略改动单独验证。
 
-P2 仍只在独立测试 Vault 安装；未改动工作 Vault 的插件配置，未发布插件或新版 App。
+插件仍只在独立测试 Vault 安装，未改动工作 Vault 的插件配置。App 0.5.0 / build 6、插件 0.3.0、协议 1；发布状态见阶段记录及 GitHub Release。
 
 ## 10. 官方参考
 
@@ -255,4 +260,4 @@ P2 仍只在独立测试 Vault 安装；未改动工作 Vault 的插件配置，
 - [Obsidian：移动端开发](https://docs.obsidian.md/Plugins/Getting%20started/Mobile%20development)：Node/Electron 移动端限制、桌面声明和平台检测。
 - [Apple：EventKit 访问](https://developer.apple.com/documentation/eventkit/accessing-the-event-store)：原生日历／提醒事项权限模型。
 
-上述资料不代表社区目录已接受本项目的外部原生组件。P1 实际协议见插件 README；P2 及后续协议仍为提案。
+上述资料不代表社区目录已接受本项目的外部原生组件。当前实现协议见 [P3 协议](PLUGIN_BRIDGE_P3.md)，P2 文档保留为历史兼容性记录。
