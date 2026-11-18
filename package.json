@@ -1,0 +1,17 @@
+{
+  "name": "day-planner-apple-sync-workspace",
+  "version": "0.4.1",
+  "private": true,
+  "type": "module",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "workspaces": ["plugin"],
+  "scripts": {
+    "build": "npm run build --workspace=plugin && node scripts/stage-community-plugin.mjs",
+    "test": "npm test --workspace=plugin",
+    "check:release": "node scripts/check-plugin-metadata.mjs",
+    "package:plugin": "./scripts/package-plugin-release.sh 0.4.1"
+  }
+}

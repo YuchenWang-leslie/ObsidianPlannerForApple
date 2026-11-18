@@ -5,8 +5,14 @@ cd "$(dirname "$0")/.."
 [ "$(uname -s)" = Darwin ] || { echo 'Build the plugin helper on macOS.' >&2; exit 1; }
 [ "$(uname -m)" = arm64 ] || { echo 'The plugin helper currently supports Apple silicon only.' >&2; exit 1; }
 helper_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/PluginHelper-Info.plist)"
-plugin_version="$(node -p 'JSON.parse(require("fs").readFileSync("plugin/manifest.json", "utf8")).version')"
-[ "$helper_version" = "$plugin_version" ] || { echo 'Plugin and helper versions must match.' >&2; exit 1; }
+client_helper_version="$(node --input-type=commonjs <<'NODE'
+const source = require('node:fs').readFileSync('plugin/src/helper-client.ts', 'utf8');
+const match = source.match(/export const HELPER_VERSION\s*=\s*['"]([^'"]+)['"]/);
+if (!match) throw new Error('Missing helper protocol version.');
+process.stdout.write(match[1]);
+NODE
+)"
+[ "$helper_version" = "$client_helper_version" ] || { echo 'Native helper and client helper versions must match.' >&2; exit 1; }
 
 helper_build="$(pwd)/.build/plugin-helper"
 helper_bundle="$(pwd)/plugin/dist/native/DayPlannerAppleSyncHelper.app"

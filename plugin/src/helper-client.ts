@@ -1,15 +1,17 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { chmod, mkdir, readFile, rename, rm, stat } from 'node:fs/promises';
-import { join, isAbsolute } from 'node:path';
+import { access, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { join } from 'node:path';
 import { homedir, release } from 'node:os';
-import { createHash, randomUUID } from 'node:crypto';
 import { BridgeError, sendBridgeRequest } from './bridge-client.ts';
 import type { BaseResponse, BridgeOptions, OpenInput, PairingCredential } from './bridge-client.ts';
 
 export const HELPER_VERSION = '0.4.0';
 const bundleName = 'DayPlannerAppleSyncHelper.app';
 const executableName = 'DayPlannerAppleSyncHelper';
+export const HELPER_BUNDLE_ID = 'com.obsidianplanner.pluginhelper';
+export const HELPER_SETUP_URL = 'https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/blob/main/docs/HELPER_SETUP.md';
 export const pluginBridgeRoot = (home = homedir()): string => join(home, 'Library', 'Application Support', 'ObsidianPlanner', 'PluginBridge');
 export const helperRuntimePath = (home = homedir()): string => join(home, 'Library', 'Application Support', 'ObsidianPlanner', 'PluginRuntime', HELPER_VERSION, bundleName);
 export type PermissionState = 'notDetermined' | 'denied' | 'restricted' | 'fullAccess' | 'writeOnly';
@@ -19,53 +21,52 @@ export interface HelperState {
     reminderSourceID: string; calendarSourceID: string;
 }
 export interface SetupResponse extends BaseResponse { status: 'ready' | 'needsSetup' | 'failed' | 'busy'; state?: HelperState }
-export type RunFile = (file: string, args: string[]) => Promise<void>;
+export type RunFile = (file: string, args: string[]) => Promise<{ stdout?: string } | void>;
 const exec = promisify(execFile);
-const defaultRunFile: RunFile = async (file, args) => { await exec(file, args); };
+const defaultRunFile: RunFile = async (file, args) => { const { stdout } = await exec(file, args); return { stdout }; };
 export interface HelperRuntimeOptions {
     home?: string; root?: string; signal?: AbortSignal; runFile?: RunFile;
     platform?: string; arch?: string; osRelease?: string;
 }
 export function unsupportedReason(environment: Pick<HelperRuntimeOptions, 'platform' | 'arch' | 'osRelease'> = {}): string | null {
     if ((environment.platform ?? process.platform) !== 'darwin' || (environment.arch ?? process.arch) !== 'arm64' || Number((environment.osRelease ?? release()).split('.')[0]) < 23)
-        return 'Plugin 0.4.0 requires Apple silicon, macOS 14 or later, and desktop Obsidian for Apple silicon. Install the complete plugin ZIP; a separate ObsidianPlanner App is not used.';
+        return `Day Planner Apple Sync requires Apple silicon, macOS 14 or later, and desktop Obsidian for Apple silicon. Helper setup: ${HELPER_SETUP_URL}`;
     return null;
 }
-async function fingerprint(bundle: string): Promise<string> {
-    const hash = createHash('sha256');
-    for (const file of ['Info.plist', join('MacOS', executableName)]) hash.update(await readFile(join(bundle, 'Contents', file)));
-    return hash.digest('hex');
-}
-export async function ensureHelperRuntime(pluginDirectory: string, options: HelperRuntimeOptions = {}): Promise<string> {
+/** Locate and validate a manually installed helper. This never installs or updates native code. */
+export async function ensureHelperRuntime(_pluginDirectory: string, options: HelperRuntimeOptions = {}): Promise<string> {
     const unsupported = unsupportedReason(options); if (unsupported) throw new BridgeError('UNSUPPORTED_PLATFORM', unsupported);
-    if (!isAbsolute(pluginDirectory)) throw new BridgeError('HELPER_MISSING', 'The plugin folder is unavailable. Reinstall the complete plugin 0.4.0 ZIP, including native/.');
     options.signal?.throwIfAborted();
-    const source = join(pluginDirectory, 'native', bundleName), target = helperRuntimePath(options.home);
-    let sourceHash: string;
-    try { sourceHash = await fingerprint(source); }
-    catch { throw new BridgeError('HELPER_MISSING', 'The bundled macOS helper is missing or incomplete. Reinstall the complete plugin 0.4.0 ZIP, including native/DayPlannerAppleSyncHelper.app. No separate App is required.'); }
-    let installed = false;
-    try { installed = (await stat(target)).isDirectory(); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    if (installed) {
-        let targetHash: string | null = null;
-        try { targetHash = await fingerprint(target); } catch { /* An incomplete existing bundle must not be overwritten. */ }
-        if (targetHash !== sourceHash) throw new BridgeError('RUNTIME_MISMATCH', `The installed helper differs from this plugin build. Let any sync finish, quit Obsidian and the helper, then remove only ${target} and reopen the complete plugin to reinstall it. Keep PluginBridge and sync history. No running job was stopped.`);
-        return target;
-    }
-    const parent = join(options.home ?? homedir(), 'Library', 'Application Support', 'ObsidianPlanner', 'PluginRuntime', HELPER_VERSION);
-    await mkdir(parent, { recursive: true, mode: 0o700 }); await chmod(parent, 0o700);
-    const temporary = join(parent, `.${randomUUID()}.install.app`);
+    const target = helperRuntimePath(options.home), contents = join(target, 'Contents');
+    const info = join(contents, 'Info.plist'), executable = join(contents, 'MacOS', executableName);
+    const invalid = (reason: string) => new BridgeError('RUNTIME_MISMATCH', `${reason} Install the official helper ${HELPER_VERSION} manually using ${HELPER_SETUP_URL}. No native files were installed or changed.`);
     try {
-        // ditto preserves the app signature and macOS extended attributes during installation.
-        await (options.runFile ?? defaultRunFile)('/usr/bin/ditto', [source, temporary]);
-        options.signal?.throwIfAborted();
-        try { await rename(temporary, target); }
-        catch (error) {
-            // Another vault may have completed the same immutable-version install.
-            if (!['EEXIST', 'ENOTEMPTY'].includes((error as NodeJS.ErrnoException).code ?? '') || await fingerprint(target) !== sourceHash) throw error;
-        }
-    } finally { await rm(temporary, { force: true, recursive: true }); }
+        if (!(await stat(target)).isDirectory()) throw invalid('The installed helper bundle is not a directory.');
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new BridgeError('HELPER_MISSING', `The macOS helper ${HELPER_VERSION} is not installed. Existing 0.4.0 helper installations are supported; the community plugin does not download or install native code. Follow ${HELPER_SETUP_URL}`);
+        throw error;
+    }
+    try {
+        if (!(await stat(info)).isFile() || !(await stat(executable)).isFile()) throw invalid('The installed helper is incomplete.');
+        await access(info, constants.R_OK); await access(executable, constants.R_OK | constants.X_OK);
+    } catch { throw invalid('The installed helper metadata or executable is missing or unreadable.'); }
+    const run = options.runFile ?? defaultRunFile;
+    let metadata: Record<string, unknown>;
+    try {
+        // -o - reads XML/binary plists as JSON on stdout without changing the file.
+        const output = await run('/usr/bin/plutil', ['-convert', 'json', '-o', '-', info]);
+        if (!output || typeof output.stdout !== 'string') throw invalid('The helper metadata could not be read.');
+        metadata = JSON.parse(output.stdout);
+        if (!metadata || metadata.CFBundleIdentifier !== HELPER_BUNDLE_ID || metadata.CFBundleShortVersionString !== HELPER_VERSION ||
+            metadata.CFBundleExecutable !== executableName || metadata.LSUIElement !== true || metadata.CFBundlePackageType !== 'APPL' ||
+            !Array.isArray(metadata.CFBundleURLTypes) || !metadata.CFBundleURLTypes.some(value => value && Array.isArray(value.CFBundleURLSchemes) && value.CFBundleURLSchemes.includes('obsidianplanner-helper'))) throw invalid('The installed helper identity or version does not match.');
+    } catch { throw invalid('The installed helper metadata is invalid or its identity/version does not match.'); }
+    options.signal?.throwIfAborted();
+    try {
+        // This checks signed-bundle integrity/identity; it does not claim Apple notarization.
+        await run('/usr/bin/codesign', ['--verify', '--strict', `-R=identifier "${HELPER_BUNDLE_ID}"`, target]);
+    } catch { throw invalid('The installed helper signature could not be verified.'); }
+    options.signal?.throwIfAborted();
     return target;
 }
 export function helperBridgeOptions(pluginDirectory: string, options: HelperRuntimeOptions = {}): BridgeOptions {
@@ -93,7 +94,7 @@ async function setup(input: OpenInput, action: 'info' | 'authorize' | 'configure
     if (options.scheme !== 'obsidianplanner-helper' || !options.root) throw new BridgeError('INVALID_RESPONSE', 'The independent plugin requires its private helper transport.');
     const response = await sendBridgeRequest(input, action, extra, ['ready', 'needsSetup', 'failed', 'busy'], options) as SetupResponse;
     if (response.appVersion !== HELPER_VERSION || (response.state !== undefined && !validState(response.state)) ||
-        (((response.status === 'ready' && action !== 'unpair') || (response.status === 'needsSetup' && action === 'authorize')) && !validState(response.state))) throw new BridgeError('INVALID_RESPONSE', 'The bundled helper returned incompatible setup information. Reinstall the complete matching plugin 0.4.0 package.');
+        (((response.status === 'ready' && action !== 'unpair') || (response.status === 'needsSetup' && action === 'authorize')) && !validState(response.state))) throw new BridgeError('INVALID_RESPONSE', `The installed helper returned incompatible setup information. Check helper ${HELPER_VERSION} using ${HELPER_SETUP_URL}`);
     return response;
 }
 export const helperInfo = (input: OpenInput, options: BridgeOptions): Promise<SetupResponse> => setup(input, 'info', {}, options);

@@ -158,7 +158,7 @@ export async function sendBridgeRequest(input: OpenInput, action: 'open' | 'pair
         await writeFile(temporaryPath, JSON.stringify(request), { mode: 0o600, flag: 'wx' }); await rename(temporaryPath, requestPath);
         options.signal?.throwIfAborted();
         try { await options.launch(`${options.scheme ?? 'obsidianplanner'}://bridge/${action}?protocol=1&requestId=${id}`); }
-        catch (error) { options.signal?.throwIfAborted(); if (error instanceof BridgeError) throw error; throw new BridgeError('APP_NOT_FOUND', options.scheme === 'obsidianplanner-helper' ? 'Could not start the bundled helper. Install the complete plugin 0.4.0 ZIP, including native/. No standalone App is required.' : 'Could not open ObsidianPlanner. Install and open the matching companion Mac app first.'); }
+        catch (error) { options.signal?.throwIfAborted(); if (error instanceof BridgeError) throw error; throw new BridgeError('APP_NOT_FOUND', options.scheme === 'obsidianplanner-helper' ? 'Could not start the manually installed macOS helper. Follow the Helper setup guide in the plugin and check macOS permissions.' : 'Could not open ObsidianPlanner. Install and open the matching companion Mac app first.'); }
         const deadline = Date.now() + (options.timeoutMs ?? (action === 'pair' ? 120000 : 8000));
         let reportedPending = false;
         while (Date.now() < deadline) {
@@ -177,7 +177,7 @@ export async function sendBridgeRequest(input: OpenInput, action: 'open' | 'pair
             ? 'No confirmed sync result. The native job may still be running. Use Check last sync; do not submit the batch again.'
             : action === 'pair'
             ? options.scheme === 'obsidianplanner-helper' ? 'The helper did not confirm this connection. Refresh connection and try Connect this vault manually. No sync was performed.' : 'Pairing was not confirmed before the timeout. Check the Mac app and pair again manually. No sync was performed.'
-            : options.scheme === 'obsidianplanner-helper' ? 'The bundled helper did not confirm the request. Reinstall the complete plugin 0.4.0 package and check macOS permission settings. No sync was reported.'
+            : options.scheme === 'obsidianplanner-helper' ? 'The installed macOS helper did not confirm the request. Refresh connection and check macOS permissions. No sync was reported.'
                 : 'The Mac app did not confirm the request. It may be missing, still starting, or too old. Install the matching companion app and check its window. No sync was reported.');
     } finally { await Promise.all([requestPath, temporaryPath, responsePath].map(path => rm(path, { force: true }))); }
 }
