@@ -1,4 +1,29 @@
-.apple-sync-range { max-width: 560px; }
-.apple-sync-context { color: var(--text-accent); font-weight: 500; }
-.apple-sync-description { color: var(--text-muted); line-height: 1.5; }
+.apple-sync-modal { width: min(760px, 92vw); }
+.apple-sync-preview { padding: 4px; }
+.apple-sync-header { margin-bottom: 24px; }
+.apple-sync-eyebrow { color: var(--text-accent); font-size: var(--font-smallest); letter-spacing: .08em; font-weight: 600; }
+.apple-sync-header h2 { margin: 8px 0; }
+.apple-sync-context { color: var(--text-accent); font-weight: 500; margin-bottom: 4px; }
+.apple-sync-description, .apple-sync-reason { color: var(--text-muted); line-height: 1.5; font-size: var(--font-small); }
+.apple-sync-path { color: var(--text-faint); overflow-wrap: anywhere; font-size: var(--font-smaller); }
+.apple-sync-card { padding: 16px 20px; margin: 14px 0; border: 1px solid var(--background-modifier-border); border-radius: 12px; background: var(--background-secondary); }
+.apple-sync-card h3 { margin: 0 0 12px; font-size: var(--font-ui-medium); }
+.apple-sync-card .setting-item:last-child { padding-bottom: 0; }
+.apple-sync-save-note { color: var(--text-muted); font-size: var(--font-small); }
 .apple-sync-status { color: var(--text-muted); line-height: 1.5; min-height: 1.5em; }
+.apple-sync-summary, .apple-sync-plan-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.apple-sync-summary { margin: 24px 0 12px; }
+.apple-sync-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: var(--font-smallest); font-weight: 500; color: var(--text-muted); background: var(--background-modifier-hover); }
+.apple-sync-create { color: var(--text-success); }
+.apple-sync-update { color: var(--text-accent); }
+.apple-sync-conflict { color: var(--text-warning); }
+.apple-sync-day { margin: 24px 0; }
+.apple-sync-day h3 { font-size: var(--font-ui-small); color: var(--text-muted); }
+.apple-sync-plan { display: flex; gap: 18px; padding: 16px 0; border-top: 1px solid var(--background-modifier-border); }
+.apple-sync-plan-time { color: var(--text-muted); min-width: 90px; font-size: var(--font-small); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.apple-sync-plan-body { min-width: 0; }
+.apple-sync-plan-body strong { display: block; margin-bottom: 8px; }
+.apple-sync-reason { margin: 8px 0; }
+.apple-sync-source { border: 0; box-shadow: none; padding: 0; height: auto; background: transparent; color: var(--text-accent); font-size: var(--font-smallest); overflow-wrap: anywhere; text-align: left; }
+.apple-sync-source:hover { text-decoration: underline; background: transparent; }
+.apple-sync-issues { padding: 12px 16px; border-radius: 10px; background: var(--background-secondary); font-size: var(--font-small); }

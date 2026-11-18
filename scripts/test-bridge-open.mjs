@@ -23,5 +23,5 @@ const response = await openPlanner({
     timeZone: values.zone ?? 'Asia/Shanghai',
 }, { launch: url => execute('/usr/bin/open', [url]).then(() => undefined) });
 assert.equal(response.status, values.expect ?? 'opened', response.message);
-assert.equal(response.appVersion, '0.3.0');
+assert.equal(response.appVersion, '0.4.0');
 console.log(`PASS native bridge: status=${response.status}; app=${response.appVersion}; range=${values.start}..${values.end}. No automatic sync requested.`);

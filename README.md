@@ -94,13 +94,15 @@ A native macOS app that exports Obsidian Day Planner schedules to Apple Reminder
 
 App 在本机读取选定 Vault 的日记，保存同步映射并通过 EventKit 访问苹果日历／提醒事项。选定导出的标题、时间、备注和同步 URL 会写入你选择的苹果账户；选用 iCloud 时由苹果同步至你的其他设备。App 不提供自己的服务器或分析服务。运行时数据不属于源码仓库。
 
-## Obsidian 伴随插件（本地 P1 原型）
+## Obsidian 伴随插件（本地 P2 原型）
 
-源码中的 `plugin/` 现提供 macOS 专用插件入口：侧栏按钮、命令面板、本周／下周／自定义范围与时区选择。它打开 Mac App 并填入范围；预览和实际 Sync 仍在 App 中完成。换到不同 Vault 时，App 会先要求确认文件夹。
+源码中的 `plugin/` 提供 macOS 专用入口：侧栏按钮、命令面板、本周／下周／自定义范围、时区和通知选项。首次在 Mac App 确认 Vault 配对后，可以在 Obsidian 查看按日期分组的安排、匹配／跳过状态和格式问题，点击条目定位源日记。Swift App 和插件使用同一预览核心及既有同步历史。
 
-需要本地构建的 **App 0.3.0 P1 / bridge protocol 1**；上方公开下载的 **v0.2.0-beta.1 不支持插件通信**。当前没有插件公开发行，也未提交社区目录。请先在独立测试 Vault 手动安装，保存日记后再发起预览。
+**P2 只读预览，实际 Sync 仍在 Mac App 中操作。** 配对和预览不写日记、不写同步历史、不创建苹果条目；配对凭据保存在 Mac 本地的 Application Support，不进入 Vault。保存编辑后再预览；配对可在 App 撤销，已有历史和苹果条目保留。
 
-[插件构建、安装与使用](plugin/README.md) · [P0/P1 测试记录与人工验收](docs/PLUGINIZATION_PROGRESS.md)
+需要本地构建的 **App 0.4.0 P2 / 插件 0.2.0 / bridge protocol 1**；上方公开下载的 **v0.2.0-beta.1 不支持插件通信**。当前没有插件公开发行，也未提交社区目录。请先在独立测试 Vault 手动安装。
+
+[插件构建、配对与使用](plugin/README.md) · [插件阶段测试记录](docs/PLUGINIZATION_PROGRESS.md) · [P2 协议](docs/PLUGIN_BRIDGE_P2.md)
 
 ## 从源码构建 / Build from source
 

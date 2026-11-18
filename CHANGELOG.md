@@ -1,6 +1,14 @@
 # Changelog / 更新记录
 
-## Unreleased — P1 companion prototype
+## Unreleased — P2 companion prototype
+
+- Added explicit per-vault local pairing, token rotation and native revocation. Credentials stay outside the vault in private Mac storage.
+- Added read-only preview results inside Obsidian: grouped dates, matching and default-skip states, parser issues, counts and source-note links.
+- Extracted one Swift preview entry point and shared history store; native and plugin previews use the existing path-derived identities and history format.
+- Preview requests validate pairing and vault path; they never expose a sync route or write EventKit items/history.
+- Requires local App 0.4.0 / build 5 and plugin 0.2.0. P3 plugin-side syncing is not implemented; no new public release yet.
+
+### P1 foundation
 
 - Added a macOS-only Obsidian companion plugin with a ribbon button, four commands, date-range selection and time-zone settings.
 - Added open-only bridge protocol 1 and native URL handling. Cold launch, a closed main window and a minimized window restore the App with the requested dates.

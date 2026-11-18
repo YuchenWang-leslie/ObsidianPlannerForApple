@@ -1,84 +1,172 @@
 import { mkdir, writeFile, rename, readFile, rm, chmod } from 'node:fs/promises';
 import { join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { validDate, validTimeZone } from './range.ts';
 import type { DateRange } from './range.ts';
 
-export interface OpenRequest extends DateRange {
-    protocolVersion: 1;
-    requestId: string;
-    action: 'open';
-    vaultPath: string;
-    vaultName: string;
-    timeZone: string;
-}
-export interface OpenResponse {
-    protocolVersion: 1;
-    requestId: string;
-    status: 'opened' | 'needsVault' | 'busy' | 'failed';
-    appVersion: string;
-    message: string;
-}
 export interface OpenInput extends DateRange { vaultPath: string; vaultName: string; timeZone: string }
+export interface OpenRequest extends OpenInput { protocolVersion: 1; requestId: string; action: 'open' }
+export type NotificationChannel = 'Reminders' | 'Calendar' | 'Both' | 'None';
+export interface SyncOptions { includeCalendar: boolean; notification: { channel: NotificationChannel; minutes: number } }
+export const defaultSyncOptions = (): SyncOptions => ({ includeCalendar: false, notification: { channel: 'Reminders', minutes: 10 } });
+export interface PairingCredential { vaultKey: string; pairingToken: string }
+export interface PreviewEntry {
+    id: string; filePath: string; line: number; date: string; title: string;
+    start: string; end: string; startTime: string; endTime: string; completed: boolean;
+    action: 'create' | 'update' | 'unchanged' | 'conflict';
+    selectedAction: 'create' | 'skip' | 'conflict'; reason: string;
+}
+export interface PreviewResult extends DateRange {
+    previewId: string; vaultKey: string; vaultName: string; timeZone: string; options: SyncOptions;
+    entries: PreviewEntry[]; issues: string[];
+    counts: { create: number; update: number; unchanged: number; conflict: number; skipped: number };
+}
+interface BaseResponse { protocolVersion: 1; requestId: string; appVersion: string; message: string; errorCode?: string; capabilities?: string[] }
+export interface OpenResponse extends BaseResponse { status: 'opened' | 'needsVault' | 'busy' | 'failed' }
+export interface PairResponse extends BaseResponse { status: 'pending' | 'paired' | 'failed' | 'busy' | 'needsSetup'; pairing?: PairingCredential }
+export interface PreviewResponse extends BaseResponse { status: 'previewReady' | 'failed' | 'busy' | 'needsSetup'; preview?: PreviewResult }
+type WireResponse = BaseResponse & { status: string; pairing?: PairingCredential; preview?: PreviewResult };
 export interface BridgeOptions {
     root?: string;
     launch: (url: string) => Promise<void>;
     timeoutMs?: number;
     pollMs?: number;
     signal?: AbortSignal;
+    onPending?: () => void;
 }
 export class BridgeError extends Error {
-    readonly code: 'APP_NOT_FOUND' | 'NO_CONFIRMATION' | 'INVALID_RESPONSE';
-    constructor(code: 'APP_NOT_FOUND' | 'NO_CONFIRMATION' | 'INVALID_RESPONSE', message: string) { super(message); this.code = code; }
+    readonly code: 'APP_NOT_FOUND' | 'NO_CONFIRMATION' | 'INVALID_RESPONSE' | 'INVALID_CREDENTIAL';
+    constructor(code: BridgeError['code'], message: string) { super(message); this.code = code; }
 }
 export const bridgeRoot = () => join(homedir(), 'Library', 'Application Support', 'ObsidianPlanner', 'Bridge');
+const missing = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT';
+const invalidResponse = () => new BridgeError('INVALID_RESPONSE', 'The Mac app returned an incompatible response. Install the matching P2 companion app.');
+const credentialValid = (value: unknown): value is PairingCredential => {
+    const candidate = value as Partial<PairingCredential> | null;
+    return !!candidate && typeof candidate.vaultKey === 'string' && /^[a-f0-9]{64}$/.test(candidate.vaultKey) &&
+        typeof candidate.pairingToken === 'string' && candidate.pairingToken.length > 0 && candidate.pairingToken.trim() === candidate.pairingToken;
+};
 
-function isMissing(error: unknown): boolean { return (error as NodeJS.ErrnoException).code === 'ENOENT'; }
-function validateResponse(raw: unknown, id: string): OpenResponse {
-    const response = raw as Partial<OpenResponse> | null;
-    if (!response || response.protocolVersion !== 1 || typeof response.requestId !== 'string' || response.requestId.toLowerCase() !== id ||
-        !['opened', 'needsVault', 'busy', 'failed'].includes(response.status ?? '') ||
-        typeof response.appVersion !== 'string' || typeof response.message !== 'string') {
-        throw new BridgeError('INVALID_RESPONSE', 'The Mac app returned an incompatible response. Install a matching P1 companion app.');
-    }
-    return response as OpenResponse;
+export function validSyncOptions(value: unknown): value is SyncOptions {
+    const options = value as Partial<SyncOptions> | null;
+    const notice = options?.notification;
+    return !!options && typeof options.includeCalendar === 'boolean' && !!notice &&
+        ['Reminders', 'Calendar', 'Both', 'None'].includes(notice.channel) &&
+        Number.isInteger(notice.minutes) && notice.minutes >= 0 && notice.minutes <= 60 && notice.minutes % 5 === 0 &&
+        (options.includeCalendar || (notice.channel !== 'Calendar' && notice.channel !== 'Both'));
 }
-
-export async function openPlanner(input: OpenInput, options: BridgeOptions): Promise<OpenResponse> {
+function sameOptions(a: SyncOptions, b: SyncOptions): boolean {
+    return a.includeCalendar === b.includeCalendar && a.notification.channel === b.notification.channel && a.notification.minutes === b.notification.minutes;
+}
+export function validSourcePath(path: string): boolean {
+    return path.length > 0 && !isAbsolute(path) && !path.includes('\\') && !path.includes('\0') && !path.split('/').some(part => part === '..' || part === '.' || part === '');
+}
+function validEntry(value: unknown): value is PreviewEntry {
+    const entry = value as PreviewEntry | null;
+    return !!entry && typeof entry.id === 'string' && !!entry.id && typeof entry.filePath === 'string' && validSourcePath(entry.filePath) &&
+        Number.isInteger(entry.line) && entry.line > 0 && typeof entry.date === 'string' && validDate(entry.date) &&
+        typeof entry.title === 'string' && typeof entry.start === 'string' && typeof entry.end === 'string' &&
+        Number.isFinite(Date.parse(entry.start)) && Date.parse(entry.end) > Date.parse(entry.start) &&
+        typeof entry.startTime === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(entry.startTime) &&
+        typeof entry.endTime === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(entry.endTime) &&
+        typeof entry.completed === 'boolean' && ['create', 'update', 'unchanged', 'conflict'].includes(entry.action) &&
+        ['create', 'skip', 'conflict'].includes(entry.selectedAction) && typeof entry.reason === 'string';
+}
+function validatePreview(value: unknown, input: OpenInput, credential: PairingCredential, options: SyncOptions): asserts value is PreviewResult {
+    const result = value as PreviewResult | null;
+    if (!result || typeof result.previewId !== 'string' || !result.previewId || result.vaultKey !== credential.vaultKey ||
+        typeof result.vaultName !== 'string' || result.startDate !== input.startDate || result.endDate !== input.endDate ||
+        result.timeZone !== input.timeZone || !validSyncOptions(result.options) || !sameOptions(result.options, options) ||
+        !Array.isArray(result.entries) || !result.entries.every(validEntry) ||
+        new Set(result.entries.map(entry => entry.id)).size !== result.entries.length ||
+        result.entries.some(entry => entry.date < input.startDate || entry.date > input.endDate) ||
+        !Array.isArray(result.issues) || !result.issues.every(issue => typeof issue === 'string') || !result.counts ||
+        !['create', 'update', 'unchanged', 'conflict', 'skipped'].every(key => Number.isInteger(result.counts[key as keyof PreviewResult['counts']]) && result.counts[key as keyof PreviewResult['counts']] >= 0)) throw invalidResponse();
+    for (const action of ['create', 'update', 'unchanged', 'conflict'] as const) {
+        if (result.counts[action] !== result.entries.filter(entry => entry.action === action).length) throw invalidResponse();
+    }
+    if (result.counts.skipped !== result.entries.filter(entry => entry.selectedAction === 'skip').length) throw invalidResponse();
+}
+function validateResponse(raw: unknown, id: string, allowed: string[]): WireResponse {
+    const response = raw as Partial<WireResponse> | null;
+    if (!response || response.protocolVersion !== 1 || typeof response.requestId !== 'string' || response.requestId.toLowerCase() !== id ||
+        !allowed.includes(response.status ?? '') || typeof response.appVersion !== 'string' || typeof response.message !== 'string' ||
+        (response.errorCode !== undefined && typeof response.errorCode !== 'string') ||
+        (response.capabilities !== undefined && (!Array.isArray(response.capabilities) || !response.capabilities.every(value => typeof value === 'string')))) throw invalidResponse();
+    return response as WireResponse;
+}
+function validateInput(input: OpenInput): void {
     if (!isAbsolute(input.vaultPath) || !input.vaultName.trim()) throw new Error('This plugin requires a local filesystem vault.');
     if (!validTimeZone(input.timeZone) || !validDate(input.startDate) || !validDate(input.endDate) || input.endDate < input.startDate) throw new Error('Choose a valid date range and time zone.');
-    options.signal?.throwIfAborted();
-    const root = options.root ?? bridgeRoot();
-    const id = randomUUID().toLowerCase();
-    const requestPath = join(root, 'inbox', `${id}.json`);
-    const temporaryPath = `${requestPath}.tmp`;
-    const responsePath = join(root, 'outbox', `${id}.json`);
-    const request: OpenRequest = { protocolVersion: 1, requestId: id, action: 'open', ...input };
-    for (const dir of [root, join(root, 'inbox'), join(root, 'outbox')]) {
-        await mkdir(dir, { recursive: true, mode: 0o700 });
-        await chmod(dir, 0o700);
-    }
+}
+async function privateDir(path: string): Promise<void> { await mkdir(path, { recursive: true, mode: 0o700 }); await chmod(path, 0o700); }
+const credentialPath = (vaultPath: string, root: string) => join(root, 'clients', `${createHash('sha256').update(vaultPath).digest('hex')}.json`);
+
+export async function readCredential(vaultPath: string, root = bridgeRoot()): Promise<PairingCredential | null> {
     try {
-        await writeFile(temporaryPath, JSON.stringify(request), { mode: 0o600, flag: 'wx' });
-        await rename(temporaryPath, requestPath);
+        const text = await readFile(credentialPath(vaultPath, root), 'utf8');
+        let saved: unknown;
+        try { saved = JSON.parse(text); }
+        catch { throw new BridgeError('INVALID_CREDENTIAL', 'The local vault credential is unavailable. Pair this vault again.'); }
+        if (!credentialValid(saved) || (saved as PairingCredential & { vaultPath?: string }).vaultPath !== vaultPath) throw new BridgeError('INVALID_CREDENTIAL', 'The local vault credential is unavailable. Pair this vault again.');
+        return { vaultKey: saved.vaultKey, pairingToken: saved.pairingToken };
+    } catch (error) { if (missing(error)) return null; throw error; }
+}
+export async function removeCredential(vaultPath: string, root = bridgeRoot()): Promise<void> { await rm(credentialPath(vaultPath, root), { force: true }); }
+async function saveCredential(vaultPath: string, credential: PairingCredential, root: string): Promise<void> {
+    await privateDir(root); await privateDir(join(root, 'clients'));
+    const target = credentialPath(vaultPath, root), temporary = `${target}.${randomUUID()}.tmp`;
+    try { await writeFile(temporary, JSON.stringify({ vaultPath, ...credential }), { mode: 0o600, flag: 'wx' }); await rename(temporary, target); }
+    finally { await rm(temporary, { force: true }); }
+}
+async function send(input: OpenInput, action: 'open' | 'pair' | 'preview', extra: object, allowed: string[], options: BridgeOptions): Promise<WireResponse> {
+    validateInput(input); options.signal?.throwIfAborted();
+    const root = options.root ?? bridgeRoot(), id = randomUUID().toLowerCase();
+    const requestPath = join(root, 'inbox', `${id}.json`), temporaryPath = `${requestPath}.tmp`, responsePath = join(root, 'outbox', `${id}.json`);
+    const request = { protocolVersion: 1, requestId: id, action, ...input, ...extra };
+    for (const dir of [root, join(root, 'inbox'), join(root, 'outbox')]) await privateDir(dir);
+    try {
+        await writeFile(temporaryPath, JSON.stringify(request), { mode: 0o600, flag: 'wx' }); await rename(temporaryPath, requestPath);
         options.signal?.throwIfAborted();
-        try { await options.launch(`obsidianplanner://bridge/open?protocol=1&requestId=${id}`); }
-        catch (error) {
-            options.signal?.throwIfAborted();
-            throw new BridgeError('APP_NOT_FOUND', 'Could not open ObsidianPlanner. Install and open the P1 Mac companion app first.');
-        }
-        const deadline = Date.now() + (options.timeoutMs ?? 8000);
+        try { await options.launch(`obsidianplanner://bridge/${action}?protocol=1&requestId=${id}`); }
+        catch { options.signal?.throwIfAborted(); throw new BridgeError('APP_NOT_FOUND', 'Could not open ObsidianPlanner. Install and open the matching companion Mac app first.'); }
+        const deadline = Date.now() + (options.timeoutMs ?? (action === 'pair' ? 120000 : 8000));
+        let reportedPending = false;
         while (Date.now() < deadline) {
             options.signal?.throwIfAborted();
-            try { return validateResponse(JSON.parse(await readFile(responsePath, 'utf8')), id); }
-            catch (error) { if (!isMissing(error)) throw error; }
+            try {
+                const text = await readFile(responsePath, 'utf8');
+                let raw: unknown;
+                try { raw = JSON.parse(text); } catch { throw invalidResponse(); }
+                const response = validateResponse(raw, id, allowed);
+                if (response.status !== 'pending') return response;
+                if (!reportedPending) { options.onPending?.(); reportedPending = true; }
+            } catch (error) { if (!missing(error)) throw error; }
             await delay(options.pollMs ?? 150, undefined, { signal: options.signal });
         }
-        throw new BridgeError('NO_CONFIRMATION', 'The Mac app did not confirm opening. It may be missing, still starting, or too old. Install the matching P1 app and check its window. Nothing was reported as synced.');
-    } finally {
-        // Only this request's files are removed; sync history is never touched.
-        await Promise.all([requestPath, temporaryPath, responsePath].map(path => rm(path, { force: true })));
+        throw new BridgeError('NO_CONFIRMATION', action === 'pair'
+            ? 'Pairing was not confirmed before the timeout. Check the Mac app and pair again manually. No sync was performed.'
+            : 'The Mac app did not confirm the request. It may be missing, still starting, or too old. Install the matching companion app and check its window. No sync was reported.');
+    } finally { await Promise.all([requestPath, temporaryPath, responsePath].map(path => rm(path, { force: true }))); }
+}
+export async function openPlanner(input: OpenInput, options: BridgeOptions): Promise<OpenResponse> {
+    return await send(input, 'open', {}, ['opened', 'needsVault', 'busy', 'failed'], options) as OpenResponse;
+}
+export async function pairPlanner(input: OpenInput, options: BridgeOptions): Promise<PairResponse> {
+    const response = await send(input, 'pair', {}, ['pending', 'paired', 'failed', 'busy', 'needsSetup'], options) as PairResponse;
+    if (response.status === 'paired') {
+        if (!credentialValid(response.pairing)) throw invalidResponse();
+        await saveCredential(input.vaultPath, response.pairing, options.root ?? bridgeRoot());
     }
+    return response;
+}
+export async function previewPlanner(input: OpenInput, credential: PairingCredential, syncOptions: SyncOptions, options: BridgeOptions): Promise<PreviewResponse> {
+    if (!credentialValid(credential)) throw new BridgeError('INVALID_CREDENTIAL', 'Pair this vault before requesting a preview.');
+    if (!validSyncOptions(syncOptions)) throw new Error('Choose valid destination and notification settings. Calendar notifications require calendar export.');
+    const response = await send(input, 'preview', { ...credential, options: syncOptions }, ['previewReady', 'failed', 'busy', 'needsSetup'], options) as PreviewResponse;
+    if (response.status === 'previewReady') validatePreview(response.preview, input, credential, syncOptions);
+    if (response.errorCode === 'VAULT_NOT_PAIRED') await removeCredential(input.vaultPath, options.root ?? bridgeRoot());
+    return response;
 }

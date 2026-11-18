@@ -1,25 +1,16 @@
 import Foundation
 import EventKit
-import CryptoKit
 import PlannerCore
 
 @MainActor
 extension PlannerModel {
-    private var vaultKey: String {
-        SHA256.hash(data: Data((vault?.standardizedFileURL.path ?? "").utf8)).map { String(format: "%02x", $0) }.joined()
+    var historyStore: PlannerHistoryStore {
+        PlannerHistoryStore(root: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ObsidianPlanner", isDirectory: true))
     }
-    private var stateURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ObsidianPlanner").appendingPathComponent(vaultKey + ".json")
-    }
-    private func loadRecords() throws -> [SyncRecord] {
-        guard FileManager.default.fileExists(atPath: stateURL.path) else { return [] }
-        return try JSONDecoder().decode([SyncRecord].self, from: Data(contentsOf: stateURL))
-    }
-    private func saveRecords(_ records: [SyncRecord]) throws {
-        try FileManager.default.createDirectory(at: stateURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try JSONEncoder().encode(records).write(to: stateURL, options: .atomic)
-    }
+    private var vaultKey: String { PlannerHistoryStore.vaultKey(for: vault!) }
+    private func loadRecords() throws -> [SyncRecord] { try historyStore.load(vault: vault!) }
+    private func saveRecords(_ records: [SyncRecord]) throws { try historyStore.save(records, vault: vault!) }
     private func selectedRecords(_ records: [SyncRecord]) throws -> [SyncRecord] {
         let (first, last, cal) = try bounds()
         let firstKey = PlannerDates.string(first, timeZone: cal.timeZone)
@@ -28,12 +19,9 @@ extension PlannerModel {
     }
     func updateSyncPreview() {
         do {
-            let matches = SyncMatcher.match(entries: entries, records: try selectedRecords(loadRecords()))
-            previewMatches = matches
-            conflicts = matches.filter { $0.action == .conflict }
-            let assigned = Set(matches.filter { $0.action != .conflict }.compactMap { $0.record?.id })
-            linkCandidates = try selectedRecords(loadRecords()).filter { $0.supersededBy == nil && !assigned.contains($0.id) }
-            syncActions = Dictionary(uniqueKeysWithValues: matches.map { ($0.entry.id, $0.action.rawValue) })
+            let result = try PlannerPreviewEngine(history: historyStore).preview(try previewInput())
+            entries = result.entries; issues = result.issues
+            applyPreviewMatches(result)
         } catch { issues.append("Cannot read sync history: \(error.localizedDescription)") }
     }
     private func destination(_ type: EKEntityType, sourceID: String) throws -> EKCalendar {

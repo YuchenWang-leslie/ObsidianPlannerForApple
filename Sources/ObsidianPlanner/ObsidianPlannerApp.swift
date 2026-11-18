@@ -63,6 +63,9 @@ final class PlannerModel: ObservableObject {
     @Published var pendingBridgeRequest: BridgeOpenRequest?
     @Published var bridgeNotice: String?
     var bridgeResponses: [UUID: BridgeOpenResponse] = [:]
+    var bridgeRequests: [UUID: BridgeOpenRequest] = [:]
+    @Published var pluginPaired = false
+    var lastPreview: BridgePreview?
     @Published var authorized = false
     @Published var includeCalendar = false
     @Published var calendarSources: [EKSource] = []
@@ -101,6 +104,7 @@ final class PlannerModel: ObservableObject {
         }
         zone = defaults.string(forKey: "timeZone") ?? TimeZone.current.identifier
         refreshAccess()
+        refreshPairingStatus()
     }
     func refreshAccess() {
         authorized = EKEventStore.authorizationStatus(for: .reminder) == .fullAccess
@@ -139,13 +143,19 @@ final class PlannerModel: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let bookmark = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
-            scopedURL?.stopAccessingSecurityScopedResource()
-            scopedURL = url.startAccessingSecurityScopedResource() ? url : nil
-            defaults.set(bookmark, forKey: "vaultBookmark"); vault = url
-            entries = []; issues = []; syncActions = [:]; previewMatches = []; planChoices = [:]; conflicts = []; resolutions = [:]
-            syncSummary = ""; message = "Vault selected. Choose a date range and preview your schedules."
+            activateVault(url, bookmark: bookmark)
+            message = "Vault selected. Choose a date range and preview your schedules."
             confirmBridgeVaultSelection()
         } catch { message = error.localizedDescription }
+    }
+    func activateVault(_ url: URL, bookmark: Data, accessURL: URL? = nil) {
+        scopedURL?.stopAccessingSecurityScopedResource()
+        let access = accessURL ?? url
+        scopedURL = access.startAccessingSecurityScopedResource() ? access : nil
+        defaults.set(bookmark, forKey: "vaultBookmark"); vault = url
+        entries = []; issues = []; syncActions = [:]; previewMatches = []; planChoices = [:]
+        conflicts = []; resolutions = [:]; linkCandidates = []; lastPreview = nil; syncSummary = ""
+        refreshPairingStatus()
     }
     func bounds() throws -> (Date, Date, Calendar) {
         guard let timezone = TimeZone(identifier: zone) else { throw AppError("Choose a valid time zone.") }
@@ -160,36 +170,31 @@ final class PlannerModel: ObservableObject {
         guard last >= first else { throw AppError("End date must not be earlier than start date.") }
         return (first, last, cal)
     }
+    func previewInput() throws -> PlannerPreviewInput {
+        guard let vault else { throw AppError("Choose your Obsidian vault first.") }
+        let (first, last, calendar) = try bounds()
+        return PlannerPreviewInput(vaultPath: vault.standardizedFileURL.path,
+            startDate: PlannerDates.string(first, timeZone: calendar.timeZone),
+            endDate: PlannerDates.string(last, timeZone: calendar.timeZone), timeZone: zone,
+            options: PlannerOptions(includeCalendar: includeCalendar,
+                notification: PlannerNotification(channel: notice, minutes: minutes)))
+    }
+    func applyPreviewMatches(_ result: PlannerPreviewResult) {
+        previewMatches = result.matches
+        conflicts = result.matches.filter { $0.action == .conflict }
+        linkCandidates = result.linkCandidates
+        syncActions = Dictionary(uniqueKeysWithValues: result.matches.map { ($0.entry.id, $0.action.rawValue) })
+        lastPreview = result.payload
+    }
     func preview() {
         let previousEntries = entries
-        entries = []; issues = []; syncActions = [:]; previewMatches = []; conflicts = []
+        entries = []; issues = []; syncActions = [:]; previewMatches = []; conflicts = []; lastPreview = nil
         do {
-            guard let vault else { throw AppError("Choose your Obsidian vault first.") }
-            let (first, last, cal) = try bounds()
+            let result = try PlannerPreviewEngine(history: historyStore).preview(try previewInput())
             defaults.set(zone, forKey: "timeZone")
-            var heading = "Day planner", level = 1
-            let config = vault.appendingPathComponent(".obsidian/plugins/obsidian-day-planner/data.json")
-            if let data = try? Data(contentsOf: config), let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                heading = object["plannerHeading"] as? String ?? heading
-                level = object["plannerHeadingLevel"] as? Int ?? level
-            }
-            entries = []; issues = []
-            let formatter = DateFormatter(); formatter.calendar = cal; formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = cal.timeZone; formatter.dateFormat = "yyyy-MM-dd"
-            var day = first
-            while day <= last {
-                let date = formatter.string(from: day)
-                let file = vault.appendingPathComponent(date + ".md")
-                if FileManager.default.fileExists(atPath: file.path) {
-                    do {
-                        let result = DayPlannerParser.parse(text: try String(contentsOf: file, encoding: .utf8), date: date, timeZone: cal.timeZone, heading: heading, headingLevel: level)
-                        entries += result.entries
-                        issues += result.issues
-                    } catch { issues.append("\(date): \(error.localizedDescription)") }
-                }
-                day = cal.date(byAdding: .day, value: 1, to: day)!
-            }
+            entries = result.entries; issues = result.issues
             if entries != previousEntries { resolutions = [:]; planChoices = [:] }
-            updateSyncPreview()
+            applyPreviewMatches(result)
             message = "Preview: \(entries.count) schedules, \(issues.count) issues. No changes written."
         } catch {
             planChoices = [:]; resolutions = [:]
@@ -274,9 +279,15 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(bridgeNotice).textSelection(.enabled)
                             if let request = model.pendingBridgeRequest {
+                                Text(request.vaultPath).font(.caption).textSelection(.enabled)
                                 Text(request.startDate + " – " + request.endDate + " · " + request.timeZone)
                                     .font(.caption).foregroundStyle(.secondary)
                                 HStack {
+                                    if request.action == "pair" {
+                                        Button("Pair this vault") { model.confirmBridgePairing() }
+                                            .buttonStyle(.borderedProminent)
+                                            .disabled(!model.canConfirmBridgePairing)
+                                    }
                                     Button("Choose requested vault…") {
                                         model.chooseVault(initialURL: URL(fileURLWithPath: request.vaultPath, isDirectory: true))
                                     }
@@ -291,6 +302,14 @@ struct ContentView: View {
                         HStack {
                             Button("Choose Vault…") { model.chooseVault() }
                             Text(model.vault?.lastPathComponent ?? "No vault selected").foregroundStyle(.secondary)
+                        }
+                        if model.pluginPaired {
+                            HStack {
+                                Label("Plugin preview paired on this Mac", systemImage: "link")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Button("Revoke plugin pairing") { model.revokePluginPairing() }
+                                    .controlSize(.small)
+                            }
                         }
                         HStack {
                             if model.authorized { Label("Reminders connected", systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
