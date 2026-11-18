@@ -218,7 +218,7 @@ P2 阶段尚未验证其他系统／Obsidian 版本，未真实卸载旧 App；�
 
 ## P5：打包、文档与分发
 
-宿主修复后的最终打包及本机真实同步验收已完成。分发入口为 [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1)；公开分发和下载复核结果在本节收尾补记。
+**完成：最终打包、本机真实同步验收、GitHub 公开测试版发布和公开附件重新下载验证均已通过。** 分发入口为 [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1)。本次按维护者确认使用本地验证；远端 CI 未启动，额外兼容性边界仍保留。
 
 - 宿主字段／样式修复后重新执行 `./scripts/package-release.sh 0.5.0-beta.1`，Swift release 构建、插件干净依赖安装／构建、ad-hoc 签名、ZIP 完整性和双包 SHA-256 检查全部通过。
 - 最终附件：`ObsidianPlanner-0.5.0-beta.1-macOS-arm64.zip`、`day-planner-apple-sync-0.3.0.zip`、`SHA256SUMS.txt`。
@@ -227,7 +227,8 @@ P2 阶段尚未验证其他系统／Obsidian 版本，未真实卸载旧 App；�
 - 发现 release Mach-O 的调试符号包含构建机器路径；构建脚本现先 `strip -S` 再签名，候选包精确私人主目录扫描通过。没有修改许可或引入旧版仅 MIT 历史。
 - README、插件说明、更新记录、版本说明及协议文档已更新；明确另装 App、Apple silicon 范围、未公证状态、手动安装、单向同步、数据位置及恢复限制。
 - 新增 GitHub Actions：macOS 上验证共享核心并构建原生 App；Node 24 上测试和构建插件。首次远端运行因平台／账户配置阻塞，两个任务均未启动、无步骤日志；这不是远端测试通过。待外部限制解除后重跑。
-- 早期草稿附件曾重新下载并校验；最终修复包会替换该草稿的全部三个附件，不沿用旧包作为本版验收依据。没有强制改写历史或更改许可。
+- 最终修复包已替换草稿的全部三个附件，并于 2026-11-18 15:55（Asia/Shanghai）公开发布为 prerelease，已不是草稿。发行 tag 指向实现与实机验收提交 `c2492aa`；没有强制改写历史或更改许可。
+- 匿名请求 GitHub Release API 成功，确认无需登录可见、非草稿、包含三个附件。公开发布后重新下载全部附件：两个 ZIP 的 SHA-256 均通过，两个 ZIP 和校验清单还分别与本地最终文件逐字节一致。校验值见发行附件 `SHA256SUMS.txt`。
 
 本轮新增验证命令：
 
