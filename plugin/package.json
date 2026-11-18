@@ -1,8 +1,8 @@
 {
   "name": "day-planner-apple-sync",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "description": "Preview and selectively sync Day Planner schedules with Apple Reminders and Calendar through the companion Mac app.",
+  "description": "Preview and selectively sync Day Planner schedules to Apple Reminders and Calendar using the included macOS helper.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {

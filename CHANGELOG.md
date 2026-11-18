@@ -1,5 +1,31 @@
 # Changelog / 更新记录
 
+## plugin-v0.4.0-beta.1 — In development / 独立插件候选
+
+Plugin/helper 0.4.0, bridge protocol 1. Separate plugin release; the published App remains 0.5.0/build 6 and its assets are unchanged. New helper real-device acceptance and publication are pending.
+
+### Added / 新增
+
+- A small bundled macOS agent supplies EventKit access without requiring the full ObsidianPlanner App. It has no main window or Dock item, launches from its exact private versioned runtime path, and is supplied in the local plugin ZIP rather than downloaded automatically.
+- Connect/disconnect, independent Reminders/Calendar permission controls, eligible account choices and connection refresh inside Obsidian.
+- Helper-specific credentials, settings, expiring persisted previews and job receipts under PluginBridge, separate from the standalone App's Bridge.
+- A plugin-only packaging script, native bundle/signature/privacy checks, exact distribution-file allowlist and `SHA256SUMS-plugin-0.4.0.txt`. JavaScript builds remain usable on Linux; packaging requires the native helper on an Apple silicon Mac.
+
+### Retained behavior and limits / 保留行为与边界
+
+- Reuses PlannerCore and the existing EventKit backend without changing or rebuilding the standalone App. Saved-note parsing, per-plan choices, partial results and status-based recovery retain their existing contracts.
+- Shares existing path-derived history and Apple identities for sequential use. Use only one sync entry point at a time; the older App does not share the helper's lock. No cross-process or cross-crash exactly-once guarantee is made.
+- Existing companion credentials and App permissions do not become helper authorization. Connect explicitly and grant the helper's own entity-specific permissions. Preserve old history and credentials.
+- Plugin ZIP contains the five normal files plus `native/DayPlannerAppleSyncHelper.app`. Manual GitHub distribution uses a separate `plugin-v0.4.0-beta.1` tag and does not replace v0.5.0-beta.1 assets.
+
+### Validation status / 验证状态
+
+59 plugin tests, TypeScript checking, production build, shared Swift core checks, 30 helper protocol/storage checks, signed-agent startup and plugin-only packaging passed locally. Actual helper communication and cold launch after idle exit passed without opening the full App. Regression tests cover setup errors without state and preserving a running job when its status query is refused. A signed-bundle smoke also covers the helper defaults-domain startup crash found during integration.
+
+New helper permissions, account selection, real writes, persisted-preview/job recovery, host UI and iPhone behavior still await this version's user-assisted acceptance. Earlier App/companion checks are historical evidence only. Remote CI is not counted as passed.
+
+Apple silicon/macOS 14+ target; other system versions and Intel are untested. Ad-hoc signed, not Developer ID signed or Apple-notarized. Community-directory submission has not occurred and acceptance is not guaranteed. MIT + Commons Clause v1.0 remains unchanged, source-available and not OSI open source. See [candidate notes](docs/releases/plugin-v0.4.0-beta.1.md) and [implementation record](docs/PLUGIN_STANDALONE.md).
+
 ## v0.5.0-beta.1 — 2026-11-18
 
 App 0.5.0 / build 6; companion plugin 0.3.0; bridge protocol 1. Separate App and plugin ZIPs with SHA-256 checksums. Core local daily-use checks, test-vault sync and user-confirmed iPhone delivery/notification checks passed. The final rebuilt bundle files match the live-tested installations byte for byte.
