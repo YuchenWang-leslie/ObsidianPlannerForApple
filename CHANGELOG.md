@@ -6,7 +6,7 @@
 - Added open-only bridge protocol 1 and native URL handling. Cold launch, a closed main window and a minimized window restore the App with the requested dates.
 - Different vaults require explicit folder confirmation. App sync history and the Swift parser remain authoritative; exported item URLs never start a sync.
 - Requires the local App 0.3.0 / build 4. The plugin does not sync directly, and public v0.2.0-beta.1 does not support it.
-- Automated checks and Obsidian host handoff tests pass; see [phase records](docs/PLUGINIZATION_PROGRESS.md) for the pending P0 account checks. No new public release yet.
+- Automated checks, Obsidian host handoff tests and P0 iCloud account regression pass, including user-confirmed iPhone arrival and a 10-minute notification. See [phase records](docs/PLUGINIZATION_PROGRESS.md) for the tested scope. No new public release yet.
 
 ## v0.2.0-beta.1 — 2026-11-18
 
