@@ -42,7 +42,7 @@ test('modal can preview and sync while Obsidian retains its editor selection for
     const plugin = new module.exports.default({});
     plugin.vaultPath = () => '/Fake/Vault';
     plugin.savePreferences = async () => {};
-    plugin.refreshRange = async () => 'Included helper ready.';
+    plugin.refreshRange = async () => 'Installed helper ready.';
     const preview = {
         startDate: '2026-11-18', endDate: '2026-11-18', timeZone: 'Asia/Shanghai', syncAllowed: true,
         entries: [{ id: 'new', action: 'create' }, { id: 'old', action: 'unchanged' }], issues: [],

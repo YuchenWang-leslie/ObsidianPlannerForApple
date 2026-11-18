@@ -1,9 +1,9 @@
 {
   "id": "day-planner-apple-sync",
   "name": "Day Planner Apple Sync",
-  "version": "0.4.0",
-  "minAppVersion": "1.5.0",
-  "description": "Preview and selectively sync Day Planner schedules to Apple Reminders and Calendar using the included macOS helper.",
+  "version": "0.4.1",
+  "minAppVersion": "1.15.1",
+  "description": "Preview and selectively sync Day Planner schedules to Apple Reminders and Calendar on macOS.",
   "author": "Yuchen Wang",
   "authorUrl": "https://github.com/YuchenWang-leslie",
   "isDesktopOnly": true

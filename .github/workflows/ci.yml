@@ -17,23 +17,20 @@ jobs:
         run: ./scripts/test-core.sh
       - name: Build native app
         run: swift build -c release
-      - name: Compile bundled plugin helper
+      - name: Compile separate macOS helper
         run: ./scripts/build-plugin-helper.sh
       - name: Test helper protocol and agent startup
         run: ./scripts/test-helper.sh
 
   plugin:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: plugin
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: plugin/package-lock.json
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm test
       - run: npm run build

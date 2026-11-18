@@ -14,3 +14,6 @@ xcuserdata/
 *.mobileprovision
 *.provisionprofile
 .local/
+node_modules/
+/main.js
+/styles.css

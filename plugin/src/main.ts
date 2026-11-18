@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { acknowledgeRun, defaultSyncOptions, pairPlanner, previewPlanner, readCredential, readRun, removeCredential, runBlocksNewSync, runNeedsAcknowledgement, statusPlanner, syncPlanner, validSourcePath, validSyncOptions, waitForRun } from './bridge-client.ts';
 import type { OpenInput, PairingCredential, PreviewEntry, PreviewResult, RunPointer, SyncOptions, SyncResponse } from './bridge-client.ts';
 import { initialSelection, selectedCount } from './selection.ts';
-import { helperAuthorize, helperBridgeOptions, helperConfigure, helperInfo, helperUnpair, pluginBridgeRoot, unsupportedReason } from './helper-client.ts';
+import { helperAuthorize, helperBridgeOptions, helperConfigure, helperInfo, helperUnpair, HELPER_SETUP_URL, pluginBridgeRoot, unsupportedReason } from './helper-client.ts';
 import type { HelperState, SetupResponse } from './helper-client.ts';
 import type { PlanChoice, PlanSelection } from './selection.ts';
 import { dayInZone, resolveRange, validDate, validTimeZone } from './range.ts';
@@ -100,7 +100,7 @@ export default class AppleSyncPlugin extends Plugin {
             const response = await pairPlanner(this.input(range, timeZone), this.bridgeOptions(signal), true); this.connected(response);
             if (response.status === 'paired') {
                 this.lastVerified = null;
-                return response.pairing?.allowSync ? 'This vault is connected for preview + sync. Grant Apple access and choose accounts below. Nothing was synced.' : 'The helper did not grant sync access. Reinstall the complete plugin 0.4.0 package and reconnect.';
+                return response.pairing?.allowSync ? 'This vault is connected for preview + sync. Grant Apple access and choose accounts below. Nothing was synced.' : 'The helper did not grant sync access. Check the manually installed helper and reconnect using the Helper setup guide.';
             }
             return actionMessage(response);
         });
@@ -157,7 +157,7 @@ export default class AppleSyncPlugin extends Plugin {
     }
     report(error: unknown): string {
         if (this.aborter.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return abortMessage;
-        const description = error instanceof Error ? error.message : 'The included helper request failed. Refresh connection or reinstall the complete plugin 0.4.0 ZIP.';
+        const description = error instanceof Error ? error.message : 'The installed helper request failed. Refresh connection or follow the Helper setup guide.';
         new Notice(description, 10000); return description;
     }
 }
@@ -222,10 +222,10 @@ class PlannerModal extends Modal {
         if (kind === 'sync' && !reviewed) return;
         this.busy = true; this.operation = kind; this.poller = new AbortController();
         this.statusMessage = kind === 'connect' ? 'Connecting this exact vault for user-initiated preview + sync… No Apple items are being written.'
-            : kind.startsWith('authorize') ? 'macOS may ask for access for the included helper. Approve or deny the system prompt…'
+            : kind.startsWith('authorize') ? 'macOS may ask for access for the installed helper. Approve or deny the system prompt…'
                 : kind === 'sync' ? 'Submitting this reviewed batch once. Waiting for its native result…'
                     : kind === 'check' ? 'Checking the saved request. No batch is being submitted…'
-                        : kind === 'preview' ? 'Previewing saved notes…' : 'Refreshing the included helper and connection…';
+                        : kind === 'preview' ? 'Previewing saved notes…' : 'Refreshing the installed helper and connection…';
         this.preview = null; this.planSelection = { choices: {}, resolutions: {} };
         this.render();
         try {
@@ -261,7 +261,7 @@ class PlannerModal extends Modal {
         header.createEl('p', { text: this.app.vault.getName(), cls: 'apple-sync-context' });
         const flags = header.createDiv({ cls: 'apple-sync-summary' });
         flags.createEl('span', { text: !this.checked ? 'Checking setup…' : !this.credential ? 'Connect this vault' : this.credential.allowSync ? 'Vault credential saved · preview + sync' : 'Vault credential saved · preview only', cls: 'apple-sync-badge' });
-        flags.createEl('span', { text: this.plugin.connection ? `Included helper ${this.plugin.connection.version}` : 'Helper not verified this session', cls: 'apple-sync-badge' });
+        flags.createEl('span', { text: this.plugin.connection ? `Installed helper ${this.plugin.connection.version}` : 'Helper not verified this session', cls: 'apple-sync-badge' });
         if (this.plugin.lastVerified) flags.createEl('span', { text: `Preview verified ${this.plugin.lastVerified.toLocaleTimeString()}`, cls: 'apple-sync-badge' });
         this.renderRecovery(contentEl);
         const range = contentEl.createDiv({ cls: 'apple-sync-range-bar' });
@@ -296,6 +296,7 @@ class PlannerModal extends Modal {
         const setup = parent.createEl('details', { cls: 'apple-sync-setup' });
         setup.open = this.checked && (!this.credential || state?.remindersPermission !== 'fullAccess' || !state?.reminderSourceID || this.options.includeCalendar && (state?.calendarPermission !== 'fullAccess' || !state?.calendarSourceID));
         setup.createEl('summary', { text: 'Connection & permissions' });
+        setup.createEl('a', { text: 'Helper setup guide', attr: { href: HELPER_SETUP_URL, target: '_blank', rel: 'noopener noreferrer' } });
         setup.createEl('p', { text: this.plugin.vaultPath(), cls: 'apple-sync-path' });
         setup.createEl('p', { text: 'Connect grants this plugin access to preview and sync this exact vault only when you request it. Apple system permissions are separate. No standalone App is used.', cls: 'apple-sync-description' });
         new Setting(setup).addButton(button => button.setButtonText('Connect this vault').setDisabled(this.busy).onClick(() => { void this.perform('connect'); }));
@@ -316,7 +317,7 @@ class PlannerModal extends Modal {
             });
             if (permission === 'denied' || permission === 'restricted' || permission === 'writeOnly') setup.createEl('p', { text: `Full ${reminders ? 'Reminders' : 'Calendar'} access is needed. Check macOS System Settings → Privacy & Security for the Day Planner Apple Sync helper, then Refresh connection.`, cls: 'apple-sync-notice' });
         }
-        if (this.plugin.connection) setup.createEl('p', { text: `Included helper ${this.plugin.connection.version} · ${this.plugin.connection.capabilities.includes('sync') ? 'Selective sync available' : 'Sync support not reported. Reinstall the complete plugin package.'}`, cls: 'apple-sync-description' });
+        if (this.plugin.connection) setup.createEl('p', { text: `Installed helper ${this.plugin.connection.version} · ${this.plugin.connection.capabilities.includes('sync') ? 'Selective sync available' : 'Sync support not reported. Follow the Helper setup guide.'}`, cls: 'apple-sync-description' });
     }
     private renderOptions(parent: HTMLElement): void {
         new Setting(parent).setName('Time zone').addDropdown(dropdown => {
@@ -351,7 +352,7 @@ class PlannerModal extends Modal {
     private renderPreview(preview: PreviewResult): void {
         const summary = this.resultsEl.createDiv({ cls: 'apple-sync-summary' });
         for (const [name, value] of Object.entries(preview.counts)) summary.createEl('span', { text: `${name === 'skipped' ? 'Default skipped' : name[0].toUpperCase() + name.slice(1)} ${value}`, cls: `apple-sync-badge apple-sync-${name}` });
-        if (!preview.syncAllowed || !this.credential?.allowSync) this.resultsEl.createEl('p', { text: this.plugin.connection && !this.plugin.connection.capabilities.includes('sync') ? 'This helper does not report sync support. Reinstall the complete plugin 0.4.0 ZIP.' : 'Use Connect this vault to allow preview + sync for the independent plugin.', cls: 'apple-sync-notice' });
+        if (!preview.syncAllowed || !this.credential?.allowSync) this.resultsEl.createEl('p', { text: this.plugin.connection && !this.plugin.connection.capabilities.includes('sync') ? 'This helper does not report sync support. Follow the Helper setup guide to install helper 0.4.0 manually.' : 'Use Connect this vault to allow preview + sync for the independent plugin.', cls: 'apple-sync-notice' });
         if (!preview.entries.length) this.resultsEl.createEl('p', { text: 'No supported plans in this date range.' });
         const groups = new Map<string, PreviewEntry[]>();
         for (const entry of preview.entries) groups.set(entry.date, [...(groups.get(entry.date) ?? []), entry]);
@@ -409,7 +410,8 @@ class AppleSyncSettings extends PluginSettingTab {
     constructor(private plugin: AppleSyncPlugin) { super(plugin.app, plugin); }
     display(): void {
         this.containerEl.empty(); this.containerEl.createEl('h2', { text: 'Day Planner Apple Sync' });
-        this.containerEl.createEl('p', { text: 'Independent plugin 0.4.0 includes a small macOS helper. Requires Apple silicon and macOS 14 or later. No separate ObsidianPlanner App is installed or opened.' });
+        this.containerEl.createEl('p', { text: 'This plugin connects to a manually installed macOS helper 0.4.0. Requires Apple silicon and macOS 14 or later. It never downloads or installs native code, and does not use the standalone ObsidianPlanner App.' });
+        this.containerEl.createEl('a', { text: 'Helper setup guide', attr: { href: HELPER_SETUP_URL, target: '_blank', rel: 'noopener noreferrer' } });
         new Setting(this.containerEl).setName('Planner, connection & permissions').setDesc('Connect this vault, grant Apple access, choose accounts and manage range/notification preferences in Obsidian.').addButton(button => button.setButtonText('Open Apple sync').onClick(() => this.plugin.openModal()));
         new Setting(this.containerEl).setName('Use system time zone').addButton(button => button.setButtonText('Use system').onClick(async () => { await this.plugin.savePreferences({ ...this.plugin.settings, timeZone: systemZone() }); this.display(); }));
         this.containerEl.createEl('p', { text: 'Disconnect this vault in the planner to revoke helper access and remove its local credential. Existing Apple items and history stay. Do not run standalone App and plugin sync at the same time.', cls: 'apple-sync-description' });

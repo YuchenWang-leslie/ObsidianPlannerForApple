@@ -2,37 +2,39 @@
   <img src="Resources/Brand/AppIcon.png" width="128" alt="ObsidianPlanner app icon">
 </p>
 
-# ObsidianPlannerForApple
+# Day Planner Apple Sync
 
-把 Obsidian Day Planner 安排同步到苹果提醒事项和可选日历：可以独立使用 Mac App，也可以只安装 Obsidian 插件。在 Mac 计划，iPhone 通过 iCloud 查看，无需同步整个 Vault。
+把 Obsidian Day Planner 安排同步到苹果提醒事项和可选日历：使用 Obsidian 插件及一次手动安装的 helper，或独立使用 Mac App。在 Mac 计划，iPhone 通过 iCloud 查看，无需同步整个 Vault。
 
-Export saved Day Planner schedules to Apple Reminders and optional Calendar events. Choose the standalone Mac App or an independent Obsidian plugin. The new plugin includes its own small macOS background component and does not require the full App.
+Export saved Day Planner schedules to Apple Reminders and optional Calendar events from Obsidian. Plugin 0.4.1 uses a separately downloaded helper 0.4.0 that you install once by hand; it does not install or update native code. The full ObsidianPlanner App is a separate option and is not required.
 
-**Apple silicon · macOS 14+ 构建目标 · ad-hoc 签名，未经 Apple 公证 · MIT + Commons Clause，source-available。**
+**插件要求 Obsidian 1.15.1+；helper 要求 Apple silicon / macOS 14+。helper 为 ad-hoc 签名、未经 Apple 公证。MIT + Commons Clause，source-available。**
 
 | 产品 | 版本与状态 | 安装方式 |
 | --- | --- | --- |
 | 独立 Mac App | 已发布 App 0.5.0 / build 6；本次不改动 | [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 中的 App ZIP |
-| 独立 Obsidian 插件 | 插件/helper 0.4.0；本地及实机验收通过 | [plugin-v0.4.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/plugin-v0.4.0-beta.1) 中的插件 ZIP 与校验和 |
+| Obsidian 插件 | 插件 0.4.1 干净源码构建／62 项测试／打包通过；社区审核未确认；复用 helper 0.4.0 | [Release 0.4.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/0.4.1)，五文件插件 ZIP；helper 单独下载并由用户手动安装 |
 
-原 v0.5.0-beta.1 的 App、0.3.0 伴随插件及发行附件保持原样。0.3.0 的“另装完整 App”要求不适用于新的独立插件。
+原 App 0.5.0/build 6、插件 0.3.0 和 0.4.0 及既有发行附件保持原样。**已用 0.4.0 的用户只升级插件，保留现有 helper、授权、账户、令牌和历史。** 新用户需完成一次下述手动 helper 安装；不需要完整 App。
 
-[全部已发布版本](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [插件 0.4.0 说明](docs/releases/plugin-v0.4.0-beta.1.md) · [更新记录](CHANGELOG.md)
+[Release 0.4.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/0.4.1) · [全部版本](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [0.4.1 说明](docs/releases/0.4.1.md) · [Helper 安装](docs/HELPER_SETUP.md) · [更新记录](CHANGELOG.md)
 
-## 独立插件 0.4.0
+## Obsidian 插件 0.4.1
 
-在 Obsidian 内连接当前 Vault、授予所需苹果权限、选择提醒事项／日历账户、预览和逐条同步，查看本机结果及上次请求状态。无需打开完整 Mac App。插件 ZIP 附带 `native/DayPlannerAppleSyncHelper.app`，按需作为无主窗口、无 Dock 图标的本机后台组件运行；它不是从网络临时下载的可执行文件。
+在 Obsidian 内连接 Vault、授予所需苹果权限、选择提醒事项／日历账户、预览并逐条同步，查看本机结果及上次请求状态。插件只检查和调用已安装的 `DayPlannerAppleSyncHelper.app` 0.4.0，不下载、复制、安装或更新 helper。该组件无主窗口和 Dock 项，完整 Mac App 不参与。
 
-**本机实测通过。** 59 项插件测试、Swift 核心检查、30 项 helper 检查、签名组件启动及独立 ZIP 打包通过。新组件的权限、iCloud 账户、真实逐条同步、空闲退出后的预览／结果恢复、插件重载及 iPhone 提醒事项／日历检查均已完成；完整 App 全程未启动。详见 [独立插件记录](docs/PLUGIN_STANDALONE.md)。远端 CI 未运行通过，本次按维护者选择以本地验证为准。
+**0.4.1 本地验证通过。** 无预存 node_modules／dist 的干净源码环境通过 npm ci、check:release、62 项测试和 root build，三个标准输出与工作构建逐字节一致。真实 helperInfo 可从只有 main.js／manifest／styles 的目录调用已安装 helper，无 native/、无自安装。插件 ZIP 五文件、helper ZIP 四个 bundle 文件、签名／完整许可／私人路径及真实令牌／元数据检查、五项 payload 校验和均通过。重建 helper 与此前实机验收的 canonical 文件一致，详见 [本版记录](docs/releases/0.4.1.md)。本轮未升级用户 Vault 插件，也未重做 Apple 写入或 iPhone 验收；[0.4.0 结果](docs/PLUGIN_STANDALONE.md) 仅作历史证据。远端 CI 不计为通过，社区审核未确认。
 
 ### 安装和连接
 
-1. 从 [插件 release](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/plugin-v0.4.0-beta.1) 获取 `day-planner-apple-sync-0.4.0.zip` 与 `SHA256SUMS-plugin-0.4.0.txt`。在下载目录运行 `shasum -a 256 -c SHA256SUMS-plugin-0.4.0.txt` 核对附件。
-2. 停用旧插件，将 ZIP 中的 `day-planner-apple-sync/` 放入 `<Vault>/.obsidian/plugins/`。保留 `main.js`、manifest、样式、README、LICENSE 和完整 `native/` 文件夹。
-3. 在 Obsidian Settings → Community plugins 启用 Day Planner Apple Sync。尚未提交社区目录，当前采用 GitHub 手动安装；如未发现文件夹，重启 Obsidian。先用独立测试 Vault 和少量假安排验证。
-4. 插件把随包的 helper 安装到此 Mac 的私有版本目录并按需唤起。它有自己的系统授权；以前给完整 App 或 Obsidian 的权限不会自动转移。当前为 ad-hoc 签名、无 Developer ID 或 Apple 公证；若系统阻止打开，在核对来源后按 [Apple 官方说明](https://support.apple.com/en-us/102445) 处理。不要全局关闭 Gatekeeper，也不修改 Obsidian 的 Info.plist。
-5. 点击侧栏或运行 **Open Apple sync**，核对当前 Vault 的准确路径并点击 **Connect this vault**。这是明确的本地 preview + sync 授权，不会自动写入苹果条目。旧伴随插件凭据不复制到新 helper；原去重历史保留。
-6. 在插件点击 **Grant Reminders Access** 并选择 **Reminders account**。只有需要日历时才另点 **Grant Calendar Access**、选择 **Calendar account**；两种权限和账户独立。**Refresh connection** 可刷新状态，**Disconnect this vault** 撤销该 helper 配对且保留苹果条目及历史。
+1. **新用户先手动安装 helper。** 从新版 release 下载 `day-planner-apple-sync-helper-0.4.0-macOS-arm64.zip`，解压后把其中的 `.app` 拖到 `~/Library/Application Support/ObsidianPlanner/PluginRuntime/0.4.0/`。准确位置、Finder 打开命令及系统限制见 [Helper setup](docs/HELPER_SETUP.md)。不要替换整个 `ObsidianPlanner` 文件夹，历史和凭据也在其中。
+2. 已有 0.4.0 helper 的用户跳过上一步，只升级插件。保留相同 helper 文件及其原系统授权、账户和 `PluginBridge/` 数据。
+3. 在社区条目实际审核发布前，使用 GitHub 手动安装：下载 `day-planner-apple-sync-0.4.1.zip`，停用旧插件，把其中的 `day-planner-apple-sync/` 放入 `<Vault>/.obsidian/plugins/`。包内只有 main.js、manifest.json、styles.css、README.md、LICENSE，没有 native bundle。
+4. 在 Settings → Community plugins 启用插件；未发现文件夹时重启 Obsidian。社区 Browse 安装须等审核发布后才可用；标准 tag 和附件不是审核通过的证明。
+5. 点击侧栏或运行 **Open Apple sync**。新连接核对准确 Vault 路径，再点 **Connect this vault**；已有 0.4.0 连接保持使用。点击连接不会自动同步，也不复制旧完整 App 的配对。
+6. 新用户为 helper 授予 **Grant Reminders Access** 并选择 **Reminders account**。需要日历时另用 **Grant Calendar Access**／**Calendar account**；两项权限和来源独立。**Refresh connection** 刷新状态，**Disconnect this vault** 撤销配对且保留苹果条目及历史。
+
+`SHA256SUMS-plugin-0.4.1.txt` 覆盖 3 个标准附件（main.js、manifest.json、styles.css）、五文件插件 ZIP 和独立 helper ZIP。下载全部五个 payload 后运行 `shasum -a 256 -c SHA256SUMS-plugin-0.4.1.txt`；校验文件自身不计入该五项。
 
 macOS 默认隐藏 `.obsidian` 等点号开头的文件夹。在 Finder 或文件夹选择窗口中按 **⌘⇧G** 输入完整路径，或按 **⌘⇧.** 显示隐藏文件夹。
 
@@ -51,11 +53,11 @@ macOS 默认隐藏 `.obsidian` 等点号开头的文件夹。在 Finder 或文�
 
 超时、关闭窗口或停用插件不保证中止已开始的写入。**Check last sync** 查询原请求，不重提。部分失败／中断／未确认时先检查苹果条目，再重新预览，对已关联未完成条目用 Update existing 补写。提醒事项、日历和本机 JSON 不是同一事务，没有跨进程／跨崩溃严格 exactly-once 保证。
 
-完整安装、开发包 runtime 不匹配修复和恢复操作见 [插件 README](plugin/README.md)。
+插件功能见 [插件 README](plugin/README.md)；缺失／不兼容 helper 的人工处理见 [Helper setup](docs/HELPER_SETUP.md)，插件不会自动修复安装。
 
 ## 已发布的独立 Mac App
 
-App 0.5.0 / build 6 继续按原方式独立使用，本次不重建或替换其发行包。下载 [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 的 `ObsidianPlanner-…-macOS-arm64.zip`，解压后拖入 Applications。该 App 为 ad-hoc 签名且未公证；首次打开的系统限制见 [Apple 官方说明](https://support.apple.com/en-us/102445)。原本机真实写入／iPhone 验收范围见 [阶段记录](docs/PLUGINIZATION_PROGRESS.md)，不自动适用于新 helper。
+App 0.5.0 / build 6 继续按原方式独立使用，本次不重建或替换其发行包。下载 [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 的 `ObsidianPlanner-…-macOS-arm64.zip`，解压后拖入 Applications。该 App 为 ad-hoc 签名且未公证；首次打开的系统限制见 [Apple 官方说明](https://support.apple.com/en-us/102445)。原本机真实写入／iPhone 验收范围见 [阶段记录](docs/PLUGINIZATION_PROGRESS.md)，不作为插件 0.4.1 回归证据。
 
 
 1. **Choose Vault…**：选择 Obsidian Vault。第一版读取根目录下的 `YYYY-MM-DD.md` 日记。
@@ -96,40 +98,48 @@ App 和新插件使用相同的 Vault 标准化绝对路径身份及本机去重
 
 - **单向 Obsidian → 苹果。** 不回写日记，不因源删除、缩小范围或关闭日历而自动删除旧条目。保留苹果端编辑时选 Skip。
 - 保留 `~/Library/Application Support/ObsidianPlanner/`。检测依赖此 Mac 的历史，换 Mac、改变 Vault 路径或丢失历史没有透明迁移保证；不要清空历史来解决冲突。
-- 新插件在私有 `PluginBridge/` 保存独立凭据、请求、近期预览和结果；随包 helper 安装于 `PluginRuntime/0.4.0/`。旧 App 的 `Bridge/` 保持独立。插件偏好可在 Vault，但令牌、账户 ID、预览与运行指针不进入 `data.json`。
+- 插件在 Vault 外的私有 `PluginBridge/` 保存配对凭据、请求、近期预览和结果，并检查用户安装于 `PluginRuntime/0.4.0/` 的 helper；这是本机通信、状态恢复及 Apple 访问所需。helper 读取保存的日记与共用历史并执行显式写入。旧 App 的 `Bridge/` 保持独立。令牌、账户 ID、预览与运行指针不进入 Vault 的 `data.json`。
 - 请求含路径、日期、时区、选项和凭据，结果可含标题与源位置；不复制整篇日记到通信目录。URL 只有协议版本和 UUID。无自建服务器、监听端口、遥测或自动网络下载原生程序。本机机制不能隔离同用户的恶意进程。
 - 导出的标题、时间、备注和身份 URL 会进入所选苹果账户，选用 iCloud 时由苹果同步到其他设备。停用插件或撤销配对不删除这些对象或历史。
-- Apple silicon、macOS 14 和 Obsidian manifest 最低 1.5.0 是本版目标／声明；实际测试环境为 macOS 27.0.1 / Obsidian 1.15.1，其他系统组合和 Intel 未测。
-- 当前未提交 Obsidian 社区目录，不保证审核接受带原生组件的分发方式或当前许可证。iPhone 不需要安装插件；没有 iOS／Windows／Linux 同步端。
+- 需要 Apple silicon、macOS 14+、Obsidian 1.15.1+；最低已实测宿主是 Obsidian 1.15.1。helper 旧版验收运行于 macOS 27.0.1；macOS 14 是构建目标，其他系统组合和 Intel 未测。本轮没有在用户 Vault 实际升级或重做 Apple 写入。
+- 社区审核状态不由本仓库的 manifest 或 tag 决定；当前不保证审核接受外部原生依赖或当前许可证。iPhone 不需要插件；没有 iOS／Windows／Linux 同步端。
 
 ## 从源码构建
 
-新插件的 JavaScript 检查可使用 Node.js 24+：
+从仓库根目录使用 Node.js 24+ 运行 workspace 检查：
 
 ```sh
-cd plugin
 npm ci
 npm test
 npm run build
+npm run check:release
 ```
 
-完整独立插件包还需要 Apple silicon Mac 和 Apple Swift 命令行工具。在仓库根目录运行：
+发行打包使用：
 
 ```sh
-./scripts/package-plugin-release.sh 0.4.0-beta.1
+./scripts/package-plugin-release.sh 0.4.1
 ```
 
-该脚本执行 npm 干净安装／测试／构建，仅构建新 helper，再生成 `plugin/dist/day-planner-apple-sync-0.4.0.zip` 与独立校验和。不调用旧 App 构建或 `package-release.sh`，不替换旧 App ZIP，不上传或安装任何内容。普通 `npm run build` 只输出 JS；缺 helper 时插件打包会报错。
+标准 GitHub tag 为 `0.4.1`，与根目录 manifest.version 相同。发行提供三个独立标准文件、五文件手动插件 ZIP、单独的 helper 0.4.0 ZIP 及覆盖五项 payload 的校验和，不把 native 组件装进插件 ZIP。不重建旧 App，不替换旧 Release 附件，也不为用户自动安装 helper。
 
 原 App 的源码构建方式保留：`./scripts/test-core.sh`、`./scripts/build-app.sh`。本次插件发布不用它重建 App。`test-core.sh` 使用 swiftc 运行独立核心测试；`swift test` 另需提供 XCTest 的开发环境。
 
 ## English quick start
 
-Plugin 0.4.0 is an independent macOS Obsidian plugin. Its ZIP includes a background native helper, so no full ObsidianPlanner App is required. Connect the vault, grant the helper's separate Reminders/optional Calendar permissions and choose accounts in Obsidian. Save notes before previewing, review per-plan choices, and sync explicitly. Local automated checks and this helper's real-account, recovery, host-reload and iPhone acceptance passed; see the validation record for scope and limits.
+Plugin 0.4.1 requires Obsidian 1.15.1+, Apple silicon and macOS 14+. New users manually install the separately downloaded helper 0.4.0 once, then install the five-file plugin ZIP. Existing 0.4.0 users keep their helper, permissions, accounts and history and only upgrade the plugin. No full App is required; the plugin does not download, install or update native code. See [Helper setup](docs/HELPER_SETUP.md).
 
 The existing standalone App 0.5.0/build 6 and its published release assets stay unchanged. App and helper share local deduplication history for sequential use; use one sync entry point at a time. Status queries never resubmit an uncertain job. Inspect Apple items before a partial/interrupted retry, and use Update existing for linked incomplete items. Local saves do not confirm iPhone delivery, and no cross-process/crash exactly-once guarantee is made.
 
-Manual GitHub distribution, Apple silicon/macOS 14+ target, ad-hoc signing and no Apple notarization. Other systems/Intel and community-directory acceptance are unverified. The [plugin README](plugin/README.md) and [independent-plugin record](docs/PLUGIN_STANDALONE.md) contain setup and validation details.
+Fresh-source workspace install/metadata/build checks, 62 tests and packaging passed. The three standard outputs match the working build; exact ZIP contents, signatures, full license, private-path/token/metadata guards and all five payload checksums passed. A three-file directory successfully called the installed helper without installation; rebuilt helper files match the previously live-tested bundle. This task did not upgrade user-vault plugins or repeat Apple writes/iPhone checks. Other systems/Intel, other-machine first launch and community approval remain unverified. Helper 0.4.0 is ad-hoc signed and not Apple-notarized.
+
+## 社区目录与许可
+
+根目录现在按插件仓库提供 README、LICENSE、manifest，发布使用与 manifest 一致的 `0.4.1` tag 及单独 main.js／manifest.json／styles.css。目录读取默认分支 HEAD；这些解决可识别性与发行格式，不表示审核通过。[官方提交流程](https://docs.obsidian.md/plugins/releasing/submit-plugin)。
+
+提交者在 [Community portal](https://community.obsidian.md) 关联 GitHub 后重试条目提交／检查，按反馈处理。已有条目可用 **Review branch** 预检；新 release 尚未识别时可用 **Check for new releases**。只有实际审核并发布后才可从 Obsidian Browse 安装。[官方 FAQ](https://docs.obsidian.md/community-directory/faq)。
+
+许可仍为完整 **MIT + Commons Clause v1.0**，保留 No Sell。官方要求附带并说明 LICENSE，这些政策没有指定必须纯 MIT；自定义许可证可能触发识别警告，能否接受须由审核方判断。插件的人工依赖安装、Vault 外访问与本地数据用途已在上文及 helper guide 披露，不保证因此获得批准。[开发政策](https://docs.obsidian.md/community-directory/developer-policies)、[许可警告说明](https://docs.obsidian.md/community-directory/faq)。
 
 ## License and project notes
 

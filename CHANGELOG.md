@@ -1,5 +1,25 @@
 # Changelog / 更新记录
 
+## 0.4.1 — Standard plugin release / 本地验证通过
+
+Plugin 0.4.1 uses the existing helper 0.4.0. The standalone App remains 0.5.0/build 6; earlier versions and release assets are unchanged. Fresh-source build/metadata checks, 62 tests and packaging passed. [Release 0.4.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/0.4.1) uses standard assets; community approval is not confirmed.
+
+### Changed / 调整
+
+- Added a root manifest, root workspace/build entry and versions.json for default-branch recognition. Standard tag `0.4.1` matches manifest.version; versions.json declares only 0.4.1 → Obsidian 1.15.1, the tested minimum host.
+- Releases provide individual main.js, manifest.json and styles.css, plus a manual plugin ZIP containing only those files, README and LICENSE. The plugin ZIP contains no native component.
+- Helper 0.4.0 is a separate download, `day-planner-apple-sync-helper-0.4.0-macOS-arm64.zip`, installed once by the user at the existing private versioned runtime path. Plugin code only detects/calls it; no automatic helper downloading, copying, installation or updating.
+- Existing 0.4.0 users only upgrade the plugin and retain helper permissions, accounts, credentials, receipts and shared history. New users follow [manual helper setup](docs/HELPER_SETUP.md); the full App is not required.
+- `SHA256SUMS-plugin-0.4.1.txt` covers five payloads: the three standard files, five-file plugin ZIP and separate helper ZIP.
+
+### Policy and validation / 政策与验证
+
+MIT + Commons Clause v1.0, including No Sell, remains unchanged. Root metadata and release-format alignment do not establish community approval of the external dependency or custom license. Follow official portal feedback rather than treating recognition as acceptance; see [release notes and validation](docs/releases/0.4.1.md).
+
+Fresh-source npm ci, check:release, 62 tests and root build passed without preexisting node_modules/dist; all three standard outputs match the working build byte for byte. Packaging passed exact plugin-ZIP (five normal files/no native) and helper-ZIP (four bundle files) checks, signatures, complete license, private-path/actual-token/metadata guards and all five payload checksums. Real helperInfo succeeded from a fresh three-file directory without self-installation. Rebuilt helper 0.4.0 files match the previously live-tested canonical bundle. App/Core/helper Swift/plist/LICENSE were not changed.
+
+Prior helper 0.4.0 real-account acceptance remains historical evidence. This task has not upgraded existing user-vault plugins or repeated Apple writes/iPhone acceptance. Apple silicon/macOS 14+ only; minimum host now Obsidian 1.15.1. Other systems/Intel and cross-process/crash exactly-once behavior remain unverified. The App/helper share history for sequential use; use one sync entry point at a time.
+
 ## plugin-v0.4.0-beta.1 — 2026-11-18
 
 Plugin/helper 0.4.0, bridge protocol 1. Independent plugin release; the published App remains 0.5.0/build 6 and its assets are unchanged.
