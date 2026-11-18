@@ -196,7 +196,9 @@ node --experimental-strip-types scripts/test-bridge-preview.mjs \
 - App 包仅含 plist、可执行文件、图标、完整组合许可和签名；插件包仅含 main.js、manifest、样式、README、完整组合许可。排除 Vault、凭据、运行收据、缓存及 Apple 元数据。
 - 发现 release Mach-O 的调试符号包含构建机器路径；构建脚本现先 `strip -S` 再签名，候选包精确私人主目录扫描通过。没有修改许可或引入旧版仅 MIT 历史。
 - README、插件说明、更新记录、版本说明及协议文档已更新；明确另装 App、Apple silicon 范围、未公证状态、手动安装、单向同步、数据位置及恢复限制。
-- 新增 GitHub Actions：macOS 上验证共享核心并构建原生 App；Node 24 上测试和构建插件。远端运行结果待首次 push 后确认。
+- 新增 GitHub Actions：macOS 上验证共享核心并构建原生 App；Node 24 上测试和构建插件。首次远端运行因平台／账户配置阻塞，两个任务均未启动、无步骤日志；这不是远端测试通过。待外部限制解除后重跑。
+- 实现提交 `1519469` 已 push 到现有仓库 main，包含此前尚未 push 的 P0–P2 提交；未强制改写历史或更改许可。
+- 已创建 `v0.5.0-beta.1` 的 **draft + prerelease**，上传两个 ZIP 和 SHA256SUMS。通过已登录的 GitHub CLI 重新下载这三个附件，双 ZIP 的校验和通过，清单与本地候选清单逐字节一致。草稿尚未公开，重新下载检查不等于其他机器的首次打开验收。
 
 本轮新增验证命令：
 
