@@ -94,6 +94,14 @@ A native macOS app that exports Obsidian Day Planner schedules to Apple Reminder
 
 App 在本机读取选定 Vault 的日记，保存同步映射并通过 EventKit 访问苹果日历／提醒事项。选定导出的标题、时间、备注和同步 URL 会写入你选择的苹果账户；选用 iCloud 时由苹果同步至你的其他设备。App 不提供自己的服务器或分析服务。运行时数据不属于源码仓库。
 
+## Obsidian 伴随插件（本地 P1 原型）
+
+源码中的 `plugin/` 现提供 macOS 专用插件入口：侧栏按钮、命令面板、本周／下周／自定义范围与时区选择。它打开 Mac App 并填入范围；预览和实际 Sync 仍在 App 中完成。换到不同 Vault 时，App 会先要求确认文件夹。
+
+需要本地构建的 **App 0.3.0 P1 / bridge protocol 1**；上方公开下载的 **v0.2.0-beta.1 不支持插件通信**。当前没有插件公开发行，也未提交社区目录。请先在独立测试 Vault 手动安装，保存日记后再发起预览。
+
+[插件构建、安装与使用](plugin/README.md) · [P0/P1 测试记录与人工验收](docs/PLUGINIZATION_PROGRESS.md)
+
 ## 从源码构建 / Build from source
 
 安装 Apple Swift 命令行工具后：
@@ -130,4 +138,4 @@ Free use, modification and sharing are permitted, including personal work and in
 
 Not affiliated with Apple or Obsidian. The icon was generated with AI; [asset notes](Resources/Brand/README.md).
 
-[开发设计](docs/DEVELOPMENT.md) · [阶段测试记录](docs/PROGRESS.md) · [Obsidian 插件化计划](docs/PLUGINIZATION_PLAN.md)
+[开发设计](docs/DEVELOPMENT.md) · [App 阶段记录](docs/PROGRESS.md) · [Obsidian 插件化计划](docs/PLUGINIZATION_PLAN.md) · [插件阶段记录](docs/PLUGINIZATION_PROGRESS.md)

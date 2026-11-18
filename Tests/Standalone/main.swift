@@ -142,3 +142,4 @@ runMatchingTests()
 
 runSelectionTests()
 runNotificationHistoryTests()
+runBridgeTests()

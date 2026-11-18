@@ -1,6 +1,8 @@
 # Obsidian 插件化计划与工作指南
 
-日期：2026-10-29 · 状态：开发计划，尚未开始插件实现
+计划日期：2026-10-29 · 实施更新：2026-11-18
+
+当前进度：P0 自动基线检查通过，真实账户复验待授权；P1 已实现并通过自动测试、原生窗口唤起和 Obsidian 宿主测试。逐项结果及人工验收状态见 [阶段记录](PLUGINIZATION_PROGRESS.md)。P2–P5 仍为计划。
 
 本文件作为后续开发的任务顺序、范围和验收依据。现有 Mac App 继续可独立使用；插件作为它的 Obsidian 操作入口。先验证本机通信，再逐步迁移操作界面。遵循轻量实现原则，不提前引入服务器、数据库或通用插件框架。
 
@@ -59,7 +61,7 @@ flowchart LR
 
 **P1：仅唤起与填入范围。** 注册命令型 URL，例如 `obsidianplanner://bridge/open?protocol=1&requestId=<UUID>`。URL 只传协议和请求 ID，不携带标题、日记全文、账户信息或任意文件路径。初步请求不写入 EventKit，用户仍在 App 确认来源并点击 Sync。
 
-**P2/P3：本地请求／响应文件。** 建议在固定的 Application Support 子目录建立 inbox/outbox，插件先原子写入 JSON，再通过 URL 唤起 App。App 只从固定目录按合法 UUID 找请求，不接受 URL 指定任意读取路径。响应由插件有限次数读取；不需要监听 HTTP 端口或常驻轮询。此方案是待 P1 验证的工程选择，不是已实现能力。
+**P1 已采用最小请求／响应文件。** 为使 URL 只包含请求 ID，同时可靠传入日期和 Vault 上下文，在固定的 Application Support 子目录建立 inbox/outbox。插件先原子写入 JSON，再通过 URL 唤起 App；App 只从固定目录按合法 UUID 找请求，不接受 URL 指定任意读取路径。P1 只支持 `action: open`，返回 `opened`／`needsVault`／`busy`／`failed`，不回传日程或执行同步。插件限时等待并清理本次文件，不监听 HTTP 端口或常驻轮询。P2/P3 再扩展配对、预览与写入协议，不能把本阶段的来源确认当作配对凭据。
 
 第一版沿用 App 已授权目录读取日记。插件只传日期、时区、通知选项和 Vault 身份；不要复制整篇笔记到通信目录。用户应先保存编辑；实现时核实 Obsidian 保存行为，不能假设 API 读取的最新文本已立即落盘。若磁盘内容不一致，提示重新预览，后续再考虑按文件快照传输。
 
@@ -191,7 +193,17 @@ scripts/                          # 现有脚本与后续插件构建脚本
 ./scripts/build-app.sh
 ```
 
-后续按实际 package.json 定义插件构建／测试命令，不在尚无项目时声称 npm 命令已经可用。
+P1 已提供以下插件检查与本地打包命令（Node 24+）：
+
+```sh
+cd plugin
+npm ci
+npm test
+npm run typecheck
+npm run package
+```
+
+原生唤起还可使用 `scripts/test-bridge-open.mjs` 做只读集成检查；参数和手动安装步骤见 [插件 README](../plugin/README.md) 及 [阶段记录](PLUGINIZATION_PROGRESS.md)。
 
 新增高价值检查：协议序列化、范围及时区、URL 路由、非法／重复请求、源变化、同一任务由 App 与插件交替同步、历史兼容与冲突决策。桥接文件用临时目录、EventKit 用测试替身；权限和真实账户另做手动验收。
 
@@ -219,15 +231,15 @@ scripts/                          # 现有脚本与后续插件构建脚本
 
 依赖尽量使用官方 Obsidian API、TypeScript 和少量构建工具。运行时依赖及素材要核对其许可证；不得把本项目限制错误地覆盖第三方自身的授权。
 
-尚待 P1/P2 验证：深链接可靠性、Obsidian 编辑落盘行为、当前权限环境、配对路径一致性、请求文件权限、超时和版本协商。尚待用户体验后决定：是否把账户设置也搬到插件，以及是否需要自动同步。均不阻塞先做 P0/P1。
+P1 已验证当前机器的深链接唤起、路径确认、请求文件权限、超时与协议检查。当前权限环境的真实账户复验尚待完成。Obsidian 未保存编辑的落盘行为、P2 配对路径与凭据，以及跨版本运行仍待后续验证；P1 明确要求先保存编辑。尚待用户体验后决定：是否把账户设置也搬到插件，以及是否需要自动同步。
 
-## 9. 下一次开发从哪里开始
+## 9. 继续开发从哪里开始
 
-1. 先执行 P0，补齐当前新版行为的实测记录。
-2. 建立插件外壳和原生 bridge 路由，完成仅唤起、不自动写入的 P1。
-3. 汇报 P1 结果，让用户在真实 Obsidian 中体验后再进入 P2。
+1. 补齐 [阶段记录](PLUGINIZATION_PROGRESS.md) 中 P0 真实账户的人工验收。
+2. 用户体验已安装在测试 Vault 的 P1，确认入口与日期选择体验。
+3. P0 验收及路线确认后，再开展 P2 配对、执行核心抽离及预览回传。
 
-本次只交付计划，不安装插件、不修改用户 Vault、不发布新版本。
+P1 只在独立测试 Vault 安装；未改动工作 Vault 的插件配置，未发布插件或新版 App。
 
 ## 10. 官方参考
 
@@ -237,4 +249,4 @@ scripts/                          # 现有脚本与后续插件构建脚本
 - [Obsidian：移动端开发](https://docs.obsidian.md/Plugins/Getting%20started/Mobile%20development)：Node/Electron 移动端限制、桌面声明和平台检测。
 - [Apple：EventKit 访问](https://developer.apple.com/documentation/eventkit/accessing-the-event-store)：原生日历／提醒事项权限模型。
 
-上述事实不代表已验证社区目录接受本项目的外部原生组件；本计划中的通信协议、文件结构与阶段安排均为设计提案。
+上述资料不代表社区目录已接受本项目的外部原生组件。P1 实际协议见插件 README；P2 及后续协议仍为提案。

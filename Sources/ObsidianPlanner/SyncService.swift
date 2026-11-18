@@ -109,6 +109,10 @@ extension PlannerModel {
     }
     func sync() async {
         guard !busy else { return }
+        guard pendingBridgeRequest == nil else {
+            message = "Confirm or dismiss the vault request from Obsidian before syncing."
+            return
+        }
         busy = true; defer { busy = false }
         // Re-read source, but do not apply row choices to a different source snapshot.
         let reviewedEntries = entries

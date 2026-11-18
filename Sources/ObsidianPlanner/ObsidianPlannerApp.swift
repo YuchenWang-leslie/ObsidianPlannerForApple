@@ -9,10 +9,10 @@ struct ObsidianPlannerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @Environment(\.openWindow) private var openWindow
     var body: some Scene {
-        WindowGroup(id: "main") {
+        Window("ObsidianPlanner", id: "main") {
             ContentView(model: model).frame(minWidth: 760, minHeight: 660)
                 .onAppear {
-                    delegate.reopen = { openWindow(id: "main") }
+                    delegate.connect(reopen: { openWindow(id: "main") }, receive: { model.handleBridgeURL($0) })
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
                 }
@@ -20,19 +20,49 @@ struct ObsidianPlannerApp: App {
     }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    var reopen: (() -> Void)?
+    private var reopen: (() -> Void)?
+    private var receive: ((URL) -> Void)?
+    private var queuedURLs: [URL] = []
+
+    func connect(reopen: @escaping () -> Void, receive: @escaping (URL) -> Void) {
+        self.reopen = reopen; self.receive = receive
+        let pending = queuedURLs; queuedURLs = []
+        for url in pending { receive(url) }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            if let receive { receive(url) }
+            else { queuedURLs.append(url) }
+        }
+        showWindow(application)
+    }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        if !hasVisibleWindows { reopen?() }
-        sender.activate(ignoringOtherApps: true)
+        showWindow(sender)
         return true
+    }
+
+    private func showWindow(_ application: NSApplication) {
+        reopen?()
+        DispatchQueue.main.async {
+            for window in application.windows where window.title == "ObsidianPlanner" {
+                if window.isMiniaturized { window.deminiaturize(nil) }
+                window.makeKeyAndOrderFront(nil)
+            }
+            application.activate(ignoringOtherApps: true)
+        }
     }
 }
 
 @MainActor
 final class PlannerModel: ObservableObject {
     let store = EKEventStore()
+    @Published var pendingBridgeRequest: BridgeOpenRequest?
+    @Published var bridgeNotice: String?
+    var bridgeResponses: [UUID: BridgeOpenResponse] = [:]
     @Published var authorized = false
     @Published var includeCalendar = false
     @Published var calendarSources: [EKSource] = []
@@ -102,8 +132,9 @@ final class PlannerModel: ObservableObject {
             message = events && reminders ? "Access granted. Choose your iCloud accounts below." : "Access was not granted. Enable Calendar and Reminders access in System Settings → Privacy & Security."
         } catch { message = error.localizedDescription }
     }
-    func chooseVault() {
+    func chooseVault(initialURL: URL? = nil) {
         let panel = NSOpenPanel()
+        panel.directoryURL = initialURL
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
@@ -113,6 +144,7 @@ final class PlannerModel: ObservableObject {
             defaults.set(bookmark, forKey: "vaultBookmark"); vault = url
             entries = []; issues = []; syncActions = [:]; previewMatches = []; planChoices = [:]; conflicts = []; resolutions = [:]
             syncSummary = ""; message = "Vault selected. Choose a date range and preview your schedules."
+            confirmBridgeVaultSelection()
         } catch { message = error.localizedDescription }
     }
     func bounds() throws -> (Date, Date, Calendar) {
@@ -237,6 +269,23 @@ struct ContentView: View {
                     Spacer()
                     if model.busy { ProgressView().controlSize(.small) }
                 }.padding(.vertical, 8)
+                if let bridgeNotice = model.bridgeNotice {
+                    GroupBox("From Obsidian") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(bridgeNotice).textSelection(.enabled)
+                            if let request = model.pendingBridgeRequest {
+                                Text(request.startDate + " – " + request.endDate + " · " + request.timeZone)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                HStack {
+                                    Button("Choose requested vault…") {
+                                        model.chooseVault(initialURL: URL(fileURLWithPath: request.vaultPath, isDirectory: true))
+                                    }
+                                    Button("Dismiss request") { model.dismissBridgeRequest() }
+                                }
+                            }
+                        }.padding(8)
+                    }
+                }
                 GroupBox("Source & destinations") {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
@@ -299,7 +348,7 @@ struct ContentView: View {
                         .controlSize(.large)
                     Button { Task { await model.sync() } } label: { Label("Sync to DayPlanner", systemImage: "arrow.triangle.2.circlepath") }
                         .buttonStyle(.borderedProminent).controlSize(.large)
-                        .disabled(!model.authorized || model.vault == nil || model.reminderSource.isEmpty || (model.includeCalendar && (model.calendarSource.isEmpty || EKEventStore.authorizationStatus(for: .event) != .fullAccess)))
+                        .disabled(model.pendingBridgeRequest != nil || !model.authorized || model.vault == nil || model.reminderSource.isEmpty || (model.includeCalendar && (model.calendarSource.isEmpty || EKEventStore.authorizationStatus(for: .event) != .fullAccess)))
                     Spacer()
                     if let last = model.lastSync { Text("Last run: " + last.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary) }
                 }

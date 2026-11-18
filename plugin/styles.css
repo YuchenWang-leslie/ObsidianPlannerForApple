@@ -1,0 +1,4 @@
+.apple-sync-range { max-width: 560px; }
+.apple-sync-context { color: var(--text-accent); font-weight: 500; }
+.apple-sync-description { color: var(--text-muted); line-height: 1.5; }
+.apple-sync-status { color: var(--text-muted); line-height: 1.5; min-height: 1.5em; }
