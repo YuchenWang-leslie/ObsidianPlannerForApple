@@ -1,10 +1,10 @@
-# plugin-v0.4.0-beta.1 — 独立 Obsidian 插件候选
+# plugin-v0.4.0-beta.1 — 独立 Obsidian 插件
 
-Plugin/helper **0.4.0** · bridge protocol **1** · 开发与验收中，尚未公开发布
+Plugin/helper **0.4.0** · bridge protocol **1** · 2026-11-18
 
 只安装 Obsidian 插件即可连接 Vault、选择提醒事项／日历账户、预览并逐条同步，无需另装完整 ObsidianPlanner App。插件 ZIP 附带小型 macOS 后台原生组件，用于系统权限和 EventKit；连接、账户、通知与结果均在 Obsidian 操作。
 
-**本版尚待真实验收。** 新 helper 的系统权限、账户选择、实际写入、空闲退出／重启后的预览与状态恢复、宿主交互及 iPhone 到达需逐项记录。旧 App／0.3.0 伴随插件的通过结果不等于新 helper 已通过。实施状态见 [独立插件记录](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/blob/main/docs/PLUGIN_STANDALONE.md)；最终构建、附件与发布结果由本版后续证据补充。
+**本版新 helper 已单独完成本机实测。** 系统权限、iCloud 账户、真实逐条写入、空闲退出后的预览／结果恢复、插件重载和 iPhone 提醒事项／日历检查通过，完整 App 全程未启动。详细证据及测试边界见 [独立插件记录](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/blob/main/docs/PLUGIN_STANDALONE.md)。
 
 ## 独立发行附件
 
@@ -43,6 +43,8 @@ helper 复用原 Swift 核心及 EventKit 后端、既有路径身份和去重�
 
 已通过：59 项插件测试、TypeScript 检查和正式 JS 构建、共享 Swift 核心检查、30 项 helper 协议／存储检查、真实签名 agent 启动、独立 ZIP 打包及校验和。实际 helper 通信和空闲退出后的冷启动也已通过，完整 App 未启动。新增回归检查覆盖启动时的设置域错误、无 state 的账户错误，以及查询被拒绝时仍保留原任务的恢复门禁。
 
-新 helper 的真实权限、账户、写入、持久预览／任务恢复、宿主交互和 iPhone 到达仍待本版实机验收。CI 不计为通过；其他机器首次打开和其他系统版本也未验证。旧版验收不替代上述待测项。
+真实账户检查覆盖提醒事项单独创建、可选日历、逐条 Update／Skip／Add again／Link、请求重放／碰撞保护、源变化拒绝，以及后台退出后的持久预览和旧结果查询。插件停用／启用和测试库窗口重开保留设置、连接与结果；源链接跳转没有改写笔记。用户确认了本版 iPhone 提醒事项检查，以及日历中 17:45–18:05 测试事件可见、时间正确。主库仅验证预览，笔记、偏好及同步历史保持不变。
+
+实际环境：Apple silicon、macOS 27.0.1、Obsidian 1.15.1。远端 CI 没有启动，不计为通过；按维护者选择以本地验证为准。其他机器首次打开、其他系统版本、整个 Obsidian 进程重启、真实系统权限拒绝／撤销和部分目的地写入失败未在本轮实测。
 
 **MIT + Commons Clause v1.0 保持不变：source-available，非 OSI 开源。** 插件及 helper 都附带完整许可；[LICENSE](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/blob/main/LICENSE) 为准，没有自行变更法律条款。

@@ -13,26 +13,28 @@ Export saved Day Planner schedules to Apple Reminders and optional Calendar even
 | 产品 | 版本与状态 | 安装方式 |
 | --- | --- | --- |
 | 独立 Mac App | 已发布 App 0.5.0 / build 6；本次不改动 | [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 中的 App ZIP |
-| 独立 Obsidian 插件 | 插件/helper 0.4.0 开发中；新 helper 实机验收及发布待完成 | 计划以 `plugin-v0.4.0-beta.1` 单独发行插件 ZIP 和校验和 |
+| 独立 Obsidian 插件 | 插件/helper 0.4.0；本地及实机验收通过 | [plugin-v0.4.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/plugin-v0.4.0-beta.1) 中的插件 ZIP 与校验和 |
 
-原 v0.5.0-beta.1 的 App、0.3.0 伴随插件及发行附件保持原样。0.3.0 的“另装完整 App”要求不适用于新的独立插件；新版真实验收完成前，不能把旧版测试结果当作新 helper 已通过。
+原 v0.5.0-beta.1 的 App、0.3.0 伴随插件及发行附件保持原样。0.3.0 的“另装完整 App”要求不适用于新的独立插件。
 
-[全部已发布版本](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [插件 0.4.0 候选说明](docs/releases/plugin-v0.4.0-beta.1.md) · [更新记录](CHANGELOG.md)
+[全部已发布版本](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [插件 0.4.0 说明](docs/releases/plugin-v0.4.0-beta.1.md) · [更新记录](CHANGELOG.md)
 
 ## 独立插件 0.4.0
 
 在 Obsidian 内连接当前 Vault、授予所需苹果权限、选择提醒事项／日历账户、预览和逐条同步，查看本机结果及上次请求状态。无需打开完整 Mac App。插件 ZIP 附带 `native/DayPlannerAppleSyncHelper.app`，按需作为无主窗口、无 Dock 图标的本机后台组件运行；它不是从网络临时下载的可执行文件。
 
-**当前状态：候选实现完成，实机验收进行中。** 59 项插件测试、Swift 核心检查、30 项 helper 检查、签名组件启动及独立 ZIP 打包通过；实际 helper 通信与空闲退出后的冷启动已验证。新 helper 的权限、账户和真实同步仍待用户实机验收，旧版结果不代替新版验收。完整证据见 [独立插件记录](docs/PLUGIN_STANDALONE.md)。远端 CI 不计为通过，本次以本地验证为准。
+**本机实测通过。** 59 项插件测试、Swift 核心检查、30 项 helper 检查、签名组件启动及独立 ZIP 打包通过。新组件的权限、iCloud 账户、真实逐条同步、空闲退出后的预览／结果恢复、插件重载及 iPhone 提醒事项／日历检查均已完成；完整 App 全程未启动。详见 [独立插件记录](docs/PLUGIN_STANDALONE.md)。远端 CI 未运行通过，本次按维护者选择以本地验证为准。
 
 ### 安装和连接
 
-1. 新版发行后，获取 `day-planner-apple-sync-0.4.0.zip` 与 `SHA256SUMS-plugin-0.4.0.txt`。在下载目录运行 `shasum -a 256 -c SHA256SUMS-plugin-0.4.0.txt` 核对附件。
+1. 从 [插件 release](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/plugin-v0.4.0-beta.1) 获取 `day-planner-apple-sync-0.4.0.zip` 与 `SHA256SUMS-plugin-0.4.0.txt`。在下载目录运行 `shasum -a 256 -c SHA256SUMS-plugin-0.4.0.txt` 核对附件。
 2. 停用旧插件，将 ZIP 中的 `day-planner-apple-sync/` 放入 `<Vault>/.obsidian/plugins/`。保留 `main.js`、manifest、样式、README、LICENSE 和完整 `native/` 文件夹。
 3. 在 Obsidian Settings → Community plugins 启用 Day Planner Apple Sync。尚未提交社区目录，当前采用 GitHub 手动安装；如未发现文件夹，重启 Obsidian。先用独立测试 Vault 和少量假安排验证。
 4. 插件把随包的 helper 安装到此 Mac 的私有版本目录并按需唤起。它有自己的系统授权；以前给完整 App 或 Obsidian 的权限不会自动转移。当前为 ad-hoc 签名、无 Developer ID 或 Apple 公证；若系统阻止打开，在核对来源后按 [Apple 官方说明](https://support.apple.com/en-us/102445) 处理。不要全局关闭 Gatekeeper，也不修改 Obsidian 的 Info.plist。
 5. 点击侧栏或运行 **Open Apple sync**，核对当前 Vault 的准确路径并点击 **Connect this vault**。这是明确的本地 preview + sync 授权，不会自动写入苹果条目。旧伴随插件凭据不复制到新 helper；原去重历史保留。
 6. 在插件点击 **Grant Reminders Access** 并选择 **Reminders account**。只有需要日历时才另点 **Grant Calendar Access**、选择 **Calendar account**；两种权限和账户独立。**Refresh connection** 可刷新状态，**Disconnect this vault** 撤销该 helper 配对且保留苹果条目及历史。
+
+macOS 默认隐藏 `.obsidian` 等点号开头的文件夹。在 Finder 或文件夹选择窗口中按 **⌘⇧G** 输入完整路径，或按 **⌘⇧.** 显示隐藏文件夹。
 
 ### 预览、逐条选择和恢复
 
@@ -97,7 +99,7 @@ App 和新插件使用相同的 Vault 标准化绝对路径身份及本机去重
 - 新插件在私有 `PluginBridge/` 保存独立凭据、请求、近期预览和结果；随包 helper 安装于 `PluginRuntime/0.4.0/`。旧 App 的 `Bridge/` 保持独立。插件偏好可在 Vault，但令牌、账户 ID、预览与运行指针不进入 `data.json`。
 - 请求含路径、日期、时区、选项和凭据，结果可含标题与源位置；不复制整篇日记到通信目录。URL 只有协议版本和 UUID。无自建服务器、监听端口、遥测或自动网络下载原生程序。本机机制不能隔离同用户的恶意进程。
 - 导出的标题、时间、备注和身份 URL 会进入所选苹果账户，选用 iCloud 时由苹果同步到其他设备。停用插件或撤销配对不删除这些对象或历史。
-- Apple silicon、macOS 14 和 Obsidian manifest 最低 1.5.0 是本版目标／声明；其他系统组合和 Intel 未测。旧流程的实测环境为 macOS 27.0.1 / Obsidian 1.15.1，新 helper 尚待本版实机补证。
+- Apple silicon、macOS 14 和 Obsidian manifest 最低 1.5.0 是本版目标／声明；实际测试环境为 macOS 27.0.1 / Obsidian 1.15.1，其他系统组合和 Intel 未测。
 - 当前未提交 Obsidian 社区目录，不保证审核接受带原生组件的分发方式或当前许可证。iPhone 不需要安装插件；没有 iOS／Windows／Linux 同步端。
 
 ## 从源码构建
@@ -123,7 +125,7 @@ npm run build
 
 ## English quick start
 
-Plugin 0.4.0 is being developed as an independent macOS Obsidian plugin. Its ZIP includes a background native helper, so no full ObsidianPlanner App is required. Connect the vault, grant the helper's separate Reminders/optional Calendar permissions and choose accounts in Obsidian. Save notes before previewing, review per-plan choices, and sync explicitly. New helper real-device acceptance is pending; earlier App/plugin results do not establish it.
+Plugin 0.4.0 is an independent macOS Obsidian plugin. Its ZIP includes a background native helper, so no full ObsidianPlanner App is required. Connect the vault, grant the helper's separate Reminders/optional Calendar permissions and choose accounts in Obsidian. Save notes before previewing, review per-plan choices, and sync explicitly. Local automated checks and this helper's real-account, recovery, host-reload and iPhone acceptance passed; see the validation record for scope and limits.
 
 The existing standalone App 0.5.0/build 6 and its published release assets stay unchanged. App and helper share local deduplication history for sequential use; use one sync entry point at a time. Status queries never resubmit an uncertain job. Inspect Apple items before a partial/interrupted retry, and use Update existing for linked incomplete items. Local saves do not confirm iPhone delivery, and no cross-process/crash exactly-once guarantee is made.
 

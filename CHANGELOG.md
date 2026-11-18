@@ -1,8 +1,8 @@
 # Changelog / 更新记录
 
-## plugin-v0.4.0-beta.1 — In development / 独立插件候选
+## plugin-v0.4.0-beta.1 — 2026-11-18
 
-Plugin/helper 0.4.0, bridge protocol 1. Separate plugin release; the published App remains 0.5.0/build 6 and its assets are unchanged. New helper real-device acceptance and publication are pending.
+Plugin/helper 0.4.0, bridge protocol 1. Independent plugin release; the published App remains 0.5.0/build 6 and its assets are unchanged.
 
 ### Added / 新增
 
@@ -22,9 +22,11 @@ Plugin/helper 0.4.0, bridge protocol 1. Separate plugin release; the published A
 
 59 plugin tests, TypeScript checking, production build, shared Swift core checks, 30 helper protocol/storage checks, signed-agent startup and plugin-only packaging passed locally. Actual helper communication and cold launch after idle exit passed without opening the full App. Regression tests cover setup errors without state and preserving a running job when its status query is refused. A signed-bundle smoke also covers the helper defaults-domain startup crash found during integration.
 
-New helper permissions, account selection, real writes, persisted-preview/job recovery, host UI and iPhone behavior still await this version's user-assisted acceptance. Earlier App/companion checks are historical evidence only. Remote CI is not counted as passed.
+This helper's real-account acceptance passed with the full App quit: entity-specific permissions/iCloud accounts, create, default Skip, explicit Update/copy/Link, request replay/collision and stale-source rejection, cold persisted-preview/result recovery, source-note opening, plugin disable/re-enable and test-window reopen. The user confirmed the requested iPhone Reminders check and Calendar arrival/time. Work-vault upgrade/connection and read-only preview passed with daily notes, preferences and sync history unchanged; no work-vault sync was submitted.
 
-Apple silicon/macOS 14+ target; other system versions and Intel are untested. Ad-hoc signed, not Developer ID signed or Apple-notarized. Community-directory submission has not occurred and acceptance is not guaranteed. MIT + Commons Clause v1.0 remains unchanged, source-available and not OSI open source. See [candidate notes](docs/releases/plugin-v0.4.0-beta.1.md) and [implementation record](docs/PLUGIN_STANDALONE.md).
+Actual environment: Apple silicon, macOS 27.0.1, Obsidian 1.15.1. Remote CI did not start and is not counted as passed; local validation follows the maintainer's choice. Other-machine first launch, a full Obsidian process restart, live OS permission denial/revocation and live partial destination failures were not exercised.
+
+Apple silicon/macOS 14+ target; other system versions and Intel are untested. Ad-hoc signed, not Developer ID signed or Apple-notarized. Community-directory submission has not occurred and acceptance is not guaranteed. MIT + Commons Clause v1.0 remains unchanged, source-available and not OSI open source. See [release notes](docs/releases/plugin-v0.4.0-beta.1.md) and [implementation record](docs/PLUGIN_STANDALONE.md).
 
 ## v0.5.0-beta.1 — 2026-11-18
 

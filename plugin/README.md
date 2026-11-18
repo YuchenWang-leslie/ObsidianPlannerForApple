@@ -2,7 +2,7 @@
 
 Preview saved Day Planner notes in Obsidian, choose an action per plan, and sync to **Apple Reminders** with optional **Calendar** events. Install this plugin without installing the full ObsidianPlanner App. The ZIP includes a small macOS background native component for Apple permissions and EventKit access; connection, accounts, notifications and results are managed in Obsidian.
 
-**Plugin/helper 0.4.0 · bridge protocol 1 · planned tag `plugin-v0.4.0-beta.1`.** This independent-plugin version is in development. Its new helper permissions and real-device flow still require acceptance; the earlier companion-plugin/App results do not establish that this version passes. GitHub manual ZIP distribution is planned, with no community-directory submission or approval claim.
+**Plugin/helper 0.4.0 · bridge protocol 1 · tag `plugin-v0.4.0-beta.1`.** This independent plugin passed local automated and real-account acceptance, including user-confirmed iPhone checks. Download the complete ZIP from the [plugin release](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/plugin-v0.4.0-beta.1). GitHub manual distribution; no community-directory submission or approval claim.
 
 Source-available under **MIT subject to Commons Clause v1.0**, not OSI open source. The complete [LICENSE](LICENSE) applies to the plugin and bundled helper and must be retained.
 
@@ -14,9 +14,11 @@ Source-available under **MIT subject to Commons Clause v1.0**, not OSI open sour
 4. The plugin installs the included native bundle into a private, versioned runtime directory on this Mac and launches it on demand. It has no main window or Dock item. It is supplied by the ZIP; the plugin does not download an executable from the network.
 5. The native helper has its own Apple permission identity. Prior permission for Obsidian or ObsidianPlanner.app does not grant it access. This beta is ad-hoc signed, without Developer ID signing or Apple notarization. If macOS blocks it, review the source and follow [Apple's guidance](https://support.apple.com/en-us/102445); do not disable Gatekeeper or change Obsidian's Info.plist.
 
-The packaged helper targets **Apple silicon / macOS 14+**. Manifest minimum Obsidian: **1.5.0**. These minimums are build declarations, not a claim of tested compatibility. Prior companion acceptance used macOS 27.0.1 / Obsidian 1.15.1; independent-helper acceptance is pending. No Intel, mobile, Windows or Linux release is provided.
+The packaged helper targets **Apple silicon / macOS 14+**. Manifest minimum Obsidian: **1.5.0**. Actual independent-helper acceptance used macOS 27.0.1 / Obsidian 1.15.1; these minimums do not establish compatibility with every version. No Intel, mobile, Windows or Linux release is provided.
 
 Updating replaces the five normal files and `native/` from a trusted plugin package. Keep plugin preferences, private history and credentials. The published standalone App remains a separate option at 0.5.0/build 6; it is not required and its release assets are unchanged.
+
+On macOS, folders beginning with a dot (such as `.obsidian`) are hidden. In Finder or a folder picker, press **⌘⇧G** to enter the complete folder path, or **⌘⇧.** to show hidden folders.
 
 ## Connect, permissions and accounts
 
@@ -108,4 +110,4 @@ A release ZIP requires an Apple silicon Mac, Apple command-line build tools and 
 
 This runs clean dependency installation, plugin tests/build, `build-plugin-helper.sh`, then `plugin/package.mjs`. Output is `plugin/dist/day-planner-apple-sync-0.4.0.zip` and `plugin/dist/SHA256SUMS-plugin-0.4.0.txt`. It does not build the full App, invoke the old App release script, overwrite old App assets, upload or install anything. `npm run package` packages an already built helper and fails clearly when it is absent; JS-only output is not a complete release.
 
-The packager checks helper identity/version, agent/privacy declarations, arm64 architecture, signature, exact file list, complete license, private build paths, local pairing-token bytes, metadata-free ZIP contents and checksum. Local validation passed 59 plugin tests, type checking/build, shared-core checks, 30 helper checks, signed-bundle startup and packaging. Actual helper communication and cold launch after idle exit passed without the full App. Apple permissions, real writes, persisted-preview/job recovery, host behavior and iPhone delivery still await independent-plugin acceptance. The [validation record](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/blob/main/docs/PLUGIN_STANDALONE.md) separates completed checks from pending ones.
+The packager checks helper identity/version, agent/privacy declarations, arm64 architecture, signature, exact file list, complete license, private build paths, local pairing-token bytes, metadata-free ZIP contents and checksum. Local validation passed 59 plugin tests, type checking/build, shared-core checks, 30 helper checks, signed-bundle startup and packaging. Real helper permissions/accounts, per-plan Apple writes, replay/stale-input handling, persisted preview/result recovery, source-note opening, plugin reload/window reopen and iPhone acceptance also passed without the full App. The [validation record](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/blob/main/docs/PLUGIN_STANDALONE.md) lists the actual environment and untested cases, including other-machine first launch and live partial failures. Remote CI is not counted as passed.
