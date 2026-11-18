@@ -54,6 +54,8 @@ final class PlannerModel: ObservableObject {
     let defaults = UserDefaults.standard
     @Published var syncSummary = ""
     @Published var syncActions: [String: String] = [:]
+    @Published var previewMatches: [SyncMatch] = []
+    @Published var planChoices: [String: PlanSyncChoice] = [:]
     @Published var conflicts: [SyncMatch] = []
     @Published var linkCandidates: [SyncRecord] = []
     @Published var resolutions: [String: String] = [:]
@@ -109,7 +111,7 @@ final class PlannerModel: ObservableObject {
             scopedURL?.stopAccessingSecurityScopedResource()
             scopedURL = url.startAccessingSecurityScopedResource() ? url : nil
             defaults.set(bookmark, forKey: "vaultBookmark"); vault = url
-            entries = []; issues = []; syncActions = [:]; conflicts = []; resolutions = [:]
+            entries = []; issues = []; syncActions = [:]; previewMatches = []; planChoices = [:]; conflicts = []; resolutions = [:]
             syncSummary = ""; message = "Vault selected. Choose a date range and preview your schedules."
         } catch { message = error.localizedDescription }
     }
@@ -128,7 +130,7 @@ final class PlannerModel: ObservableObject {
     }
     func preview() {
         let previousEntries = entries
-        entries = []; issues = []; syncActions = [:]; conflicts = []
+        entries = []; issues = []; syncActions = [:]; previewMatches = []; conflicts = []
         do {
             guard let vault else { throw AppError("Choose your Obsidian vault first.") }
             let (first, last, cal) = try bounds()
@@ -154,10 +156,24 @@ final class PlannerModel: ObservableObject {
                 }
                 day = cal.date(byAdding: .day, value: 1, to: day)!
             }
-            if entries != previousEntries { resolutions = [:] }
+            if entries != previousEntries { resolutions = [:]; planChoices = [:] }
             updateSyncPreview()
             message = "Preview: \(entries.count) schedules, \(issues.count) issues. No changes written."
-        } catch { message = error.localizedDescription }
+        } catch {
+            planChoices = [:]; resolutions = [:]
+            message = error.localizedDescription
+        }
+    }
+    func choice(for entry: ScheduleEntry) -> PlanSyncChoice {
+        planChoices[entry.id] ?? (syncActions[entry.id] == MatchAction.create.rawValue ? .add : .skip)
+    }
+    func historyLabel(for entry: ScheduleEntry) -> String {
+        guard let match = previewMatches.first(where: { $0.entry.id == entry.id }) else { return "" }
+        if let record = match.record {
+            if record.reminderID == nil { return "Incomplete sync" }
+            return match.action == .update ? "Added before · changed" : "Added before"
+        }
+        return match.action == .conflict ? "Needs matching" : "New plan"
     }
     func testDestination(type: EKEntityType, sourceID: String) throws -> EKCalendar {
         guard let source = store.source(withIdentifier: sourceID), source.sourceType != .local else {
@@ -303,6 +319,10 @@ struct ContentView: View {
                 if !model.entries.isEmpty {
                     GroupBox("Preview · \(model.entries.count) schedules") {
                         VStack(alignment: .leading, spacing: 10) {
+                            Text("New plans are added by default. Previously added plans are skipped unless you choose an action. Detection uses this Mac’s sync history.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Text("Update existing applies the title, time, completion and notification settings to the original. Add again keeps it and creates a new copy; future updates use that copy.")
+                                .font(.caption).foregroundStyle(.secondary)
                             ForEach(model.entries) { entry in
                                 HStack(alignment: .top) {
                                     Image(systemName: entry.completed ? "checkmark.circle.fill" : "circle")
@@ -314,10 +334,27 @@ struct ContentView: View {
                                             .font(.caption).foregroundStyle(.secondary)
                                     }
                                     Spacer()
-                                    Text((model.syncActions[entry.id] ?? "").capitalized)
-                                        .font(.caption.weight(.medium)).foregroundStyle(Color.accentColor)
-                                        .padding(.horizontal, 9).padding(.vertical, 4)
-                                        .background(Color.accentColor.opacity(0.10), in: Capsule())
+                                    VStack(alignment: .trailing, spacing: 6) {
+                                        Text(model.historyLabel(for: entry))
+                                            .font(.caption.weight(.medium)).foregroundStyle(Color.accentColor)
+                                        if model.syncActions[entry.id] != MatchAction.conflict.rawValue {
+                                            Picker("Sync action for " + entry.title, selection: Binding(
+                                                get: { model.choice(for: entry) },
+                                                set: { model.planChoices[entry.id] = $0 }
+                                            )) {
+                                                if model.syncActions[entry.id] == MatchAction.create.rawValue {
+                                                    Text("Add").tag(PlanSyncChoice.add)
+                                                }
+                                                Text("Skip").tag(PlanSyncChoice.skip)
+                                                if model.syncActions[entry.id] != MatchAction.create.rawValue {
+                                                    Text("Update existing").tag(PlanSyncChoice.update)
+                                                    Text("Add again (new copy)").tag(PlanSyncChoice.addAgain)
+                                                }
+                                            }.labelsHidden().frame(width: 190).controlSize(.small)
+                                        } else {
+                                            Text("Choose an action below").font(.caption).foregroundStyle(.secondary)
+                                        }
+                                    }
                                 }
                                 if entry.id != model.entries.last?.id { Divider() }
                             }
@@ -372,7 +409,17 @@ struct ContentView: View {
                 .environment(\.timeZone, TimeZone(identifier: model.zone) ?? .current)
                 .onChange(of: model.zone) { _, value in
                     model.defaults.set(value, forKey: "timeZone")
+                    if model.vault != nil { model.planChoices = [:]; model.resolutions = [:]; model.preview() }
+                }
+                .onChange(of: model.range) { _, _ in
+                    model.planChoices = [:]; model.resolutions = [:]
                     if model.vault != nil { model.preview() }
+                }
+                .onChange(of: model.start) { _, _ in
+                    if model.range == "Custom" && model.vault != nil { model.planChoices = [:]; model.resolutions = [:]; model.preview() }
+                }
+                .onChange(of: model.end) { _, _ in
+                    if model.range == "Custom" && model.vault != nil { model.planChoices = [:]; model.resolutions = [:]; model.preview() }
                 }
                 .onChange(of: model.includeCalendar) { _, enabled in
                     if !enabled && (model.notice == "Calendar" || model.notice == "Both") { model.notice = "Reminders" }

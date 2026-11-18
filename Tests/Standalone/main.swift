@@ -139,3 +139,6 @@ print("PASS testInclusiveDaysAcrossDST")
 print("All 9 core tests passed.")
 
 runMatchingTests()
+
+runSelectionTests()
+runNotificationHistoryTests()

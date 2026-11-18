@@ -6,11 +6,29 @@ public struct SyncRecord: Codable, Equatable, Sendable, Identifiable {
     public var eventID: String?
     public var reminderID: String?
     public var notification: String
+    public var supersededBy: String?
+    public var calendarNotification: String?
+    public var reminderNotification: String?
 
     public init(id: String = UUID().uuidString, entry: ScheduleEntry, eventID: String? = nil,
-                reminderID: String? = nil, notification: String = "Reminders:10") {
+                reminderID: String? = nil, notification: String = "Reminders:10", supersededBy: String? = nil,
+                calendarNotification: String? = nil, reminderNotification: String? = nil) {
         self.id = id; self.entry = entry; self.eventID = eventID
-        self.reminderID = reminderID; self.notification = notification
+        self.reminderID = reminderID; self.notification = notification; self.supersededBy = supersededBy
+        self.calendarNotification = calendarNotification; self.reminderNotification = reminderNotification
+    }
+
+    public func notification(forCalendar: Bool) -> String {
+        (forCalendar ? calendarNotification : reminderNotification) ?? notification
+    }
+
+    public mutating func recordNotification(_ value: String, forCalendar: Bool) {
+        // Capture the legacy value for both targets before changing either one.
+        if calendarNotification == nil { calendarNotification = notification }
+        if reminderNotification == nil { reminderNotification = notification }
+        if forCalendar { calendarNotification = value }
+        else { reminderNotification = value }
+        notification = value
     }
 }
 
@@ -32,6 +50,7 @@ public struct SyncMatch: Identifiable, Sendable {
 
 public enum SyncMatcher {
     public static func match(entries: [ScheduleEntry], records: [SyncRecord]) -> [SyncMatch] {
+        let records = records.filter { $0.supersededBy == nil }
         var matches: [Int: SyncMatch] = [:]
         var remainingRecords = Set(records.indices)
         var remainingEntries = Set(entries.indices)
@@ -97,7 +116,7 @@ public enum SyncMatcher {
             if choice == "new" {
                 return SyncMatch(entry: match.entry, record: nil, action: .create, reason: "Create as a new task, as selected.")
             }
-            guard let record = records.first(where: { $0.id == choice }) else {
+            guard let record = records.first(where: { $0.id == choice && $0.supersededBy == nil }) else {
                 return SyncMatch(entry: match.entry, record: nil, action: .conflict, reason: "The selected previous task is unavailable. Choose again.")
             }
             guard !alreadyUsed.contains(choice), linkChoices.filter({ $0 == choice }).count == 1 else {

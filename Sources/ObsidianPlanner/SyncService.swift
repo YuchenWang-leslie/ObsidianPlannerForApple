@@ -29,9 +29,10 @@ extension PlannerModel {
     func updateSyncPreview() {
         do {
             let matches = SyncMatcher.match(entries: entries, records: try selectedRecords(loadRecords()))
+            previewMatches = matches
             conflicts = matches.filter { $0.action == .conflict }
             let assigned = Set(matches.filter { $0.action != .conflict }.compactMap { $0.record?.id })
-            linkCandidates = try selectedRecords(loadRecords()).filter { !assigned.contains($0.id) }
+            linkCandidates = try selectedRecords(loadRecords()).filter { $0.supersededBy == nil && !assigned.contains($0.id) }
             syncActions = Dictionary(uniqueKeysWithValues: matches.map { ($0.entry.id, $0.action.rawValue) })
         } catch { issues.append("Cannot read sync history: \(error.localizedDescription)") }
     }
@@ -81,13 +82,8 @@ extension PlannerModel {
         item.notes = [time, old].filter { !$0.isEmpty }.joined(separator: "\n")
         if item.url == nil || item.url?.scheme == "obsidianplanner" { item.url = managedURL(record) }
     }
-    private func notesNeedUpdate(_ item: EKCalendarItem, record: SyncRecord) -> Bool {
-        (item.notes ?? "").contains("ObsidianPlanner:v1:") ||
-        (item.notes ?? "").contains("ObsidianPlanner source:") ||
-        (!(item.notes ?? "").contains("Time: ")) || (item.url == nil)
-    }
     private func setAlarm(_ item: EKCalendarItem, entry: ScheduleEntry, old: SyncRecord, isEvent: Bool) {
-        let parts = old.notification.split(separator: ":")
+        let parts = old.notification(forCalendar: isEvent).split(separator: ":")
         let oldChannel = parts.first.map(String.init) ?? "None"
         let oldMinutes = parts.last.flatMap { Int($0) } ?? 10
         let channel = isEvent ? "Calendar" : "Reminders"
@@ -111,27 +107,33 @@ extension PlannerModel {
             }
         }
     }
-    private func eventMatches(_ event: EKEvent, _ entry: ScheduleEntry) -> Bool {
-        event.title == entry.title && event.startDate == entry.start && event.endDate == entry.end
-    }
-    private func reminderMatches(_ reminder: EKReminder, _ entry: ScheduleEntry, calendar: Calendar) -> Bool {
-        guard let components = reminder.dueDateComponents, let due = calendar.date(from: components) else { return false }
-        return reminder.title == entry.title && abs(due.timeIntervalSince(entry.start)) < 1 && reminder.isCompleted == entry.completed
-    }
     func sync() async {
         guard !busy else { return }
         busy = true; defer { busy = false }
-        // Read current source again instead of writing an old preview.
+        // Re-read source, but do not apply row choices to a different source snapshot.
+        let reviewedEntries = entries
         preview()
         guard !entries.isEmpty else { return }
-        var calendarCount = 0, reminderCount = 0, unchanged = 0
+        if !reviewedEntries.isEmpty && reviewedEntries != entries {
+            message = "Schedules changed since your preview. Review the refreshed plans and choose actions again. Nothing was written."
+            return
+        }
+        var calendarCount = 0, reminderCount = 0, skipped = 0
         var failures: [String] = []
         do {
-            guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { throw AppError("Reminders access is required.") }
-            if includeCalendar && EKEventStore.authorizationStatus(for: .event) != .fullAccess { throw AppError("Calendar access is required when calendar events are enabled.") }
             var records = try loadRecords()
             let candidates = try selectedRecords(records)
-            let plans = SyncMatcher.resolve(matches: SyncMatcher.match(entries: entries, records: candidates), records: candidates, choices: resolutions)
+            let plans = SyncSelection.plan(matches: SyncMatcher.match(entries: entries, records: candidates), records: candidates, choices: planChoices, resolutions: resolutions)
+            skipped = plans.filter { $0.action == .skip }.count
+            failures = plans.filter { $0.action == .conflict }.map { "\($0.entry.date):\($0.entry.line) \($0.reason)" }
+            guard plans.contains(where: { $0.action != .skip && $0.action != .conflict }) else {
+                syncSummary = "Calendar saved: 0 · Reminders saved: 0 · Skipped by choice: \(skipped) · Needs attention: \(failures.count)."
+                issues += failures
+                message = "Nothing selected to sync. Choose Update existing or Add again for plans added before."
+                return
+            }
+            guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { throw AppError("Reminders access is required.") }
+            if includeCalendar && EKEventStore.authorizationStatus(for: .event) != .fullAccess { throw AppError("Calendar access is required when calendar events are enabled.") }
             let eventCalendar = includeCalendar ? try destination(.event, sourceID: calendarSource) : nil
             let reminderCalendar = try destination(.reminder, sourceID: reminderSource)
             defaults.set(calendarSource, forKey: "calendarSource"); defaults.set(reminderSource, forKey: "reminderSource")
@@ -152,27 +154,24 @@ extension PlannerModel {
             }
             for plan in plans {
                 let entry = plan.entry
-                if plan.action == .conflict { failures.append("\(entry.date):\(entry.line) \(plan.reason)"); continue }
-                var record = plan.record ?? SyncRecord(entry: entry)
-                let event = record.eventID.flatMap { store.calendarItem(withIdentifier: $0) as? EKEvent }
-                    ?? events.first(where: { hasMarker($0, record) })
-                let reminder = record.reminderID.flatMap { store.calendarItem(withIdentifier: $0) as? EKReminder }
-                    ?? reminders.first(where: { hasMarker($0, record) })
+                if plan.action == .skip || plan.action == .conflict { continue }
                 do {
+                    // Persist a new copy and its history link before writing either target.
+                    // A retry then updates this copy instead of silently adding another one.
+                    var record = SyncSelection.prepareRecord(for: plan, records: &records)
+                    try saveRecords(records)
+                    let event = includeCalendar ? (record.eventID.flatMap { store.calendarItem(withIdentifier: $0) as? EKEvent }
+                        ?? events.first(where: { hasMarker($0, record) })) : nil
+                    let reminder = record.reminderID.flatMap { store.calendarItem(withIdentifier: $0) as? EKReminder }
+                        ?? reminders.first(where: { hasMarker($0, record) })
                     if (includeCalendar && record.eventID != nil && event == nil) || (record.reminderID != nil && reminder == nil) {
                         throw AppError("An exported item was removed. Restore it before syncing this entry.")
                     }
                     if includeCalendar, let event, (event.calendar.calendarIdentifier != eventCalendar?.calendarIdentifier || (record.eventID != event.calendarItemIdentifier && !hasMarker(event, record))) { throw AppError("Calendar ownership changed; skipped.") }
                     if let reminder, (reminder.calendar.calendarIdentifier != reminderCalendar.calendarIdentifier || (record.reminderID != reminder.calendarItemIdentifier && !hasMarker(reminder, record))) { throw AppError("Reminder ownership changed; skipped.") }
                     let notification = "\(notice):\(minutes)"
-                    let changed = plan.action != .unchanged || record.notification != notification
-                    let migrationNeeded = (reminder.map { notesNeedUpdate($0, record: record) } ?? true) || (includeCalendar && (event.map { notesNeedUpdate($0, record: record) } ?? true))
-                    if !changed && !migrationNeeded && reminder != nil && (!includeCalendar || event != nil) { unchanged += 1; continue }
-                    if includeCalendar, let event, !eventMatches(event, record.entry) && !eventMatches(event, entry) { throw AppError("Calendar was edited outside the app; skipped to preserve that edit.") }
-                    if let reminder, !reminderMatches(reminder, record.entry, calendar: cal) && !reminderMatches(reminder, entry, calendar: cal) { throw AppError("Reminder was edited outside the app; skipped to preserve that edit.") }
-                    let index: Int
-                    if let existing = records.firstIndex(where: { $0.id == record.id }) { index = existing }
-                    else { records.append(record); index = records.count - 1; try saveRecords(records) }
+                    // Updating is an explicit per-plan choice, including source completion state.
+                    let index = records.firstIndex(where: { $0.id == record.id })!
                     if let eventCalendar {
                         let targetEvent = event ?? EKEvent(eventStore: store)
                         targetEvent.calendar = eventCalendar; targetEvent.title = entry.title
@@ -180,7 +179,9 @@ extension PlannerModel {
                         setNotes(targetEvent, record: record, entry: entry, calendar: cal); setAlarm(targetEvent, entry: entry, old: record, isEvent: true)
                         try store.save(targetEvent, span: .thisEvent, commit: true)
                         calendarCount += 1
-                        record.eventID = targetEvent.calendarItemIdentifier; records[index] = record; try saveRecords(records)
+                        record.eventID = targetEvent.calendarItemIdentifier
+                        record.recordNotification(notification, forCalendar: true)
+                        records[index] = record; try saveRecords(records)
                     }
                     let targetReminder = reminder ?? EKReminder(eventStore: store)
                     targetReminder.calendar = reminderCalendar; targetReminder.title = entry.title
@@ -190,15 +191,17 @@ extension PlannerModel {
                     setNotes(targetReminder, record: record, entry: entry, calendar: cal); setAlarm(targetReminder, entry: entry, old: record, isEvent: false)
                     try store.save(targetReminder, commit: true)
                     reminderCount += 1
-                    record.reminderID = targetReminder.calendarItemIdentifier; record.entry = entry; record.notification = notification
+                    record.reminderID = targetReminder.calendarItemIdentifier; record.entry = entry
+                    record.recordNotification(notification, forCalendar: false)
                     records[index] = record; try saveRecords(records)
                 } catch { failures.append("\(entry.date):\(entry.line) \(error.localizedDescription)") }
             }
             lastSync = Date(); defaults.set(lastSync, forKey: "lastSync")
+            planChoices = [:]; resolutions = [:]
             updateSyncPreview()
-            syncSummary = "Calendar saved: \(calendarCount) · Reminders saved: \(reminderCount) · Unchanged: \(unchanged) · Skipped/failed: \(failures.count)."
+            syncSummary = "Calendar saved: \(calendarCount) · Reminders saved: \(reminderCount) · Skipped by choice: \(skipped) · Failed/unresolved: \(failures.count)."
             issues += failures
-            message = "Sync finished on this Mac. Check your iPhone after iCloud sync. Run Sync again to retry incomplete entries."
+            message = "Sync finished on this Mac. Check your iPhone after iCloud sync. To retry an incomplete plan, choose Update existing and sync again."
         } catch { message = error.localizedDescription }
     }
 }

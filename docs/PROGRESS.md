@@ -1,5 +1,21 @@
 # Development checkpoints
 
+## 2026-11-18 — Per-plan sync choices
+
+New schedules default to Add. Schedules recognized from this Mac’s local history default to Skip, including changed sources. Each recognized row can explicitly Update existing or Add again (new copy). Update reapplies the source title, time, completion and selected notification settings; Skip preserves existing items.
+
+Add again retains old target objects and IDs, records a superseded history link, and uses the newly prepared record for subsequent matching and updates. Existing JSON files remain readable. Choices reset after a batch, source changes or date/time-zone changes. Incomplete copies are retried with Update existing rather than Add again. Calendar and reminder alarm bookkeeping is kept separately when only one destination is updated.
+
+Validation completed:
+
+- `./scripts/test-core.sh` passed existing parser/matching cases and new per-plan selection, deliberate-copy identity, incomplete-copy retry matching, legacy JSON, explicit conflict Skip, and independent notification-history tests.
+- `./scripts/build-app.sh` completed the Release build and local signature verification.
+- In the running native app, an isolated two-plan fixture showed existing=Skip and new=Add. Tested changing one plan to Update existing, one to Skip, and an existing plan to Add again. Re-previewing unchanged content retained the choices; editing the fixture reset them. Restored the original Vault and verified all recognized plans defaulted to Skip. No real source Markdown, reminders or calendar items were written during these UI checks.
+- Read-only review confirmed all-skipped runs return before destination creation and skipped rows bypass history preparation and EventKit writes.
+
+The latest build requires fresh Reminders authorization on this Mac. Actual new per-plan EventKit writes, partial save failures and iPhone arrival were not exercised in this round. Existing core tests model those selection/history decisions, not the full Apple integration. No GitHub push or release is created by this task.
+
+
 ## Public beta preparation — 2026-10-29
 
 The user subsequently authorized a public GitHub repository named ObsidianPlannerForApple and an initial beta release. This supersedes the earlier decision to defer publication. Added licensing, Chinese usage and installation instructions with an English quick start, and a reproducible local packaging script. The initial artifact is Apple silicon only, ad-hoc signed and not notarized. All existing standalone core tests and the Release build passed; ZIP extraction, signature verification and SHA-256 verification also passed. Cross-machine installation and macOS 14–26 compatibility remain unverified.
