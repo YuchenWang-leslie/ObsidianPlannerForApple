@@ -19,7 +19,7 @@
 .apple-sync-actions .setting-item-control { flex-wrap: wrap; justify-content: flex-start; width: 100%; }
 .apple-sync-status { color: var(--text-muted); line-height: 1.5; font-size: var(--font-small); min-height: 1em; }
 .apple-sync-summary, .apple-sync-plan-badges { display: flex; flex-wrap: wrap; gap: 6px; }
-.apple-sync-badge { display: inline-block; border-radius: 5px; padding: 3px 7px; font-size: var(--font-smallest); font-weight: 500; color: var(--text-muted); background: var(--background-modifier-hover); }
+.apple-sync-badge { border-radius: 5px; padding: 3px 7px; font-size: var(--font-smallest); font-weight: 500; color: var(--text-muted); background: var(--background-modifier-hover); }
 .apple-sync-create { color: var(--text-success); }
 .apple-sync-update { color: var(--text-accent); }
 .apple-sync-conflict, .apple-sync-notice { color: var(--text-warning); }

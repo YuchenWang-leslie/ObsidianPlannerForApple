@@ -146,11 +146,11 @@ node --experimental-strip-types scripts/test-bridge-preview.mjs \
 
 沿用既有 Swift 匹配器的保守规则：区间内存在未关联历史时，部分新安排也可能标为 Conflict；两端返回一致，本轮未改写匹配策略。P3 实现逐条决策时应继续覆盖此情况。
 
-尚未验证其他系统／Obsidian 版本，未真实卸载旧 App；超时、停用和格式错误的多数组合由自动测试替身覆盖。P2 的预览 ID 仅标识结果；P3 还需实现源快照复核和显式写入确认。本轮未进入 P3，未 push 或发布新版本。
+P2 阶段尚未验证其他系统／Obsidian 版本，未真实卸载旧 App；超时、停用和格式错误的多数组合由自动测试替身覆盖。当时的预览 ID 仅标识结果，源快照复核和显式写入确认留到 P3；该阶段没有 push 或发布新版本。P3 后续结果见下文。
 
 ## P3：插件同步与共享执行器
 
-版本：App 0.5.0 / build 6、插件 0.3.0、协议 1。实现完成；新版真实账户写入验收等待用户授权，不能据自动测试认定本阶段全部通过。实现协议见 [P3 协议](PLUGIN_BRIDGE_P3.md)。
+版本：App 0.5.0 / build 6、插件 0.3.0、协议 1。**实现、本机真实同步主流程及下述 iPhone 人工确认已通过。** 用户已批准测试 Vault 的同步配对与两项系统权限；真实故障路径仍按下文区分自动测试和实机证据。P4 本机核心日常流程及 P5 最终打包已完成，分发状态见下文。实现协议见 [P3 协议](PLUGIN_BRIDGE_P3.md)。
 
 ### 实现与自动验证
 
@@ -170,35 +170,64 @@ node --experimental-strip-types scripts/test-bridge-preview.mjs \
 - `scripts/test-preview-parity.sh` 比较完整原生预览 DTO 与共享 Swift 核心，通过；仅排除随机预览 ID 和配对授权范围字段。
 - 向新版原生入口提交旧只读凭据的 sync，收到 `needsSetup / SYNC_NOT_ALLOWED`，没有任务收据或 EventKit 写入。
 
-### 等待用户参与的新版实机验收
+### 本机真实同步与 iPhone 验收通过
 
-候选发行包已安装到全新 `ReleaseAcceptanceVault`，其中仅有两条 P3 假安排。当前停在 Obsidian 的“是否信任仓库作者”提示；尚未启用该 Vault 的插件、批准同步配对或完成候选 App 的两项系统授权。本次临时签名与旧版不同，历史授权不能替代候选包授权。
+本轮写入仅使用忽略跟踪的 `.local/ReleaseAcceptanceVault` 中的 P3 假安排，初始两条，随后增加第三条以检查新安排默认 Add。用户信任并启用该测试 Vault 的插件，明确批准 preview + sync 配对，以及候选 App 的提醒事项和日历权限。没有把旧签名或 P0 权限视作本版授权。
 
-待通过插件真实创建、重复提交／跳过、标题与时间更新、完成状态覆盖、再次添加、手动关联、可选日历和 App 重启后的结果查询；iPhone 到达及通知另需用户确认。P0 的旧版成功结果不计入这些项目。
+| 场景 | 实际结果与边界 |
+| --- | --- |
+| 插件逐条选择 | 在真实插件 UI 选择 Update 1／Skip 1，结果只保存选定的提醒事项。后续第三条假安排默认 Add、旧两条默认 Skip，真实创建 1 条。 |
+| 手机到达、通知与完成 | 用户确认 iPhone 提醒事项可见，收到 15:31 通知，之后在手机勾为完成。Mac 实际观察到完成及 `Time: …` 备注；后续显式 Update 恢复源中的未完成状态。这是本版新验证，不沿用 P0 的结论。 |
+| 标题、时间、源完成状态 | 真实改标题、改时间、源完成状态 true／false 均保存成功，并通过稳定 Apple 身份断言确认更新同一关联对象。 |
+| 再次添加与后续更新 | Add again 创建新副本、旧条目保留；随后 Update 指向最新副本，稳定 Apple 身份断言通过。 |
+| 手动关联 | 同时改标题和时间触发 Conflict；插件 UI 明确 Link 到最新副本，结果 Reminder 1／Skip 2，没有产生第 5 条历史记录。 |
+| 重放与预览认领 | 同 UUID／同输入返回原 receipt；异参同 UUID 返回 `REQUEST_ID_REUSED`；同预览另起 UUID 返回 `PREVIEW_USED`。这些检查中历史不变，没有再次执行目标写入。 |
+| 默认跳过 | 新预览默认全 Skip，两端写入均为 0。 |
+| 来源／历史变化 | 故意修改测试日记、仅修改测试历史的空白，分别返回 `SOURCE_CHANGED`，目标零写入；之后恢复测试文件。没有使用清空历史处理冲突。 |
+| 可选日历 | 插件 UI 开启日历、只对第一条选择 Update，结果 Calendar 1 + Reminder 1／Skip 2。用户确认 iPhone 日历中 15:51–16:11 的 `P3 acceptance — linked` 测试事件可见，时间正确。 |
+| 冷启动查询 | 停止全部原生 App、确认无存活进程后，仅通过 status URL 冷启动解压后的候选 App，取得原 completed 收据；历史不变。重启前生成的 preview 提交得到 `PREVIEW_EXPIRED`、零写入。 |
+| 独立原生同步 | 原生 UI 对第二条选择 Update，结果 Reminder 1／Calendar 0／Skip 2，所有 Apple 身份及已有 Calendar 关联保留；再次同步默认全 Skip，零写入／Skip 3。 |
+| 假安排通知收尾 | 最后对第一和第三条以 Calendar off／None 显式 Update，结果 Reminder 2／Calendar 0／Skip 1；所有 Apple 身份及已有日历关联保留，并清除未来假安排通知。 |
+
+已执行阶段的对照未发现工作 Vault 或 P2 既有三份历史文件被修改；本轮只对专用测试日记和其历史做受控变更。**最终收尾时仍需再次核验这些既有文件及最终设置状态。**
+
+### 宿主问题与修复证据
+
+- 插件原有 `Modal.selection` 字段与 Obsidian Modal 内部保存 editor selection 的字段重名。DevTools 错误与本地 `Modal.open` 源码确认：宿主覆盖该字段后，Sync 对它执行 `structuredClone`，其中含 Window，导致 `DataCloneError`，尚未进入同步提交。
+- 已将插件字段改为 `planSelection`。新增 [宿主生命周期回归测试](../plugin/tests/modal-host.test.mjs)，模拟宿主打开弹窗时覆盖内部 selection，先复现原失败再验证修复通过。修复后真实插件 UI 的上述 Update／Skip／Add／Link 同步通过。
+- `.apple-sync-badge` 的 `display: inline-block` 覆盖 hidden，导致不该显示的 Skipped 徽标可见。已移除该 display 声明并重载最终样式；实际宿主中，选择 Update existing 的行显示 Unchanged 匹配状态，不再误显示 Skipped，已通过宿主复核。
+
+真实账户的部分保存失败、拒绝或撤销系统权限未人为制造；相关失败、保留已保存目标及稳定身份重试已有假后端测试，**不称为这些故障路径的实机验收**。本轮未验证跨崩溃中途写入的严格 exactly-once，也未验证其他机器或最低系统版本组合。
 
 ## P4：日常体验与兼容性
 
-实现完成；44 项插件自动测试、TypeScript 类型检查及生产构建通过，新版完整宿主交互验收仍等待上述测试 Vault 启用。
+**当前机器的核心日常流程完成。** 新增宿主生命周期回归后，45 项插件本地测试、TypeScript 类型检查及生产构建通过。测试 Vault 已启用并完成真实同步、窗口重开、插件停用／启用、结果查询及徽标修复的宿主验收；以下视觉、版本与故障边界保留为未验证项，不冒充全部兼容性通过。
 
 - 英文紧凑弹窗，日期分组、逐条操作、源日记定位、可折叠连接／通知选项、执行结果及上次同步查询。
 - 日期范围、时区、通知选项存入插件偏好；凭据、请求指针和结果不进入 Vault 配置。更改选项或执行批次后清除本次预览与选择。
 - 关闭窗口、停用或重载插件会终止等待，不重提原请求，不声称撤销已开始的原生写入。未确认请求阻止新批次，需先查询或明确检查苹果条目后确认。
 - 自动测试覆盖卸载／关闭中止、缺 App、旧 App 超时、协议／身份／结果不一致、旧只读授权、状态恢复、busy／权限／来源失败、无盲目重试、持久文件字段白名单及私有权限。
 - 旧 App 不支持同步配对时明确提示安装 0.5.0；原生提醒事项与日历权限独立，未授权日历时不误报没有 iCloud。
-- 未验证其他 macOS／Obsidian 版本；尚未实机检查新版窄窗口、主题切换、插件重载、独立原生同步和系统撤权路径。拒绝／撤权失败由假后端及协议测试覆盖，不视为系统弹窗实测。
+- 独立原生同步、App 完全退出后 status 冷启动和预览失效已在本机通过；不能由此推定写入中进程崩溃恢复通过。
+- 关闭并重新打开 `ReleaseAcceptanceVault` 窗口，保留用户工作 Vault 的窗口；没有完整退出 Obsidian 进程。配对、This Week／Asia/Shanghai／Calendar + None 偏好及上次结果保留，Check last sync 成功查回原结果，没有重新提交写入。插件停用后重新启用也已在宿主实测。
+- 最终 CSS 重载后，Update existing 行的 AX 显示 Unchanged、不再误显示 Skipped。此项已在真实宿主通过，不只依赖静态样式检查。
+- **未完成的额外宿主检查：** 完整退出／重启 Obsidian 进程、额外浅色主题、600px 窄窗口及本版源日记链接的新宿主复测。为避免打断用户正在使用的工作 Vault，停止额外前台视觉切换；这些列为边界，不作为核心同步阻塞。P2 已实测过源链接定位且文件不变，不能据此声称本版已重测。
+- 通知收尾只更新专用假安排，保留所有 Apple 身份和已有日历关联。最终复核：既有三份同步历史的 SHA-256 全部保持不变，只新增一份测试 Vault 历史；同步器未改写工作 Vault 的笔记或插件配置。
+- App 已恢复原工作 Vault、本周、Asia/Shanghai、仅提醒事项和提前 10 分钟。测试 Vault 保留 Calendar + None 偏好便于查看；假安排的后续测试通知已通过显式 Update 关闭。
+- 未验证其他 macOS／Obsidian 版本；拒绝／撤销系统权限未实机制造，失败行为由假后端及协议测试覆盖，不视为系统弹窗实测。
 
-## P5：候选打包与分发
+## P5：打包、文档与分发
 
-打包和说明完成；公开发布须在新版实机验收后进行。当前未将新版作为已验收的公开 Release 发布。
+宿主修复后的最终打包及本机真实同步验收已完成。分发入口为 [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1)；公开分发和下载复核结果在本节收尾补记。
 
-- `./scripts/package-release.sh 0.5.0-beta.1` 完整执行通过：Swift release 构建、插件干净依赖安装／构建、ad-hoc 签名、ZIP 完整性和双包 SHA-256 检查。
-- 候选附件：`ObsidianPlanner-0.5.0-beta.1-macOS-arm64.zip`、`day-planner-apple-sync-0.3.0.zip`、`SHA256SUMS.txt`。
+- 宿主字段／样式修复后重新执行 `./scripts/package-release.sh 0.5.0-beta.1`，Swift release 构建、插件干净依赖安装／构建、ad-hoc 签名、ZIP 完整性和双包 SHA-256 检查全部通过。
+- 最终附件：`ObsidianPlanner-0.5.0-beta.1-macOS-arm64.zip`、`day-planner-apple-sync-0.3.0.zip`、`SHA256SUMS.txt`。
+- 将两个最终 ZIP 解压到另一个私有目录：App 的全部五个文件与实机验收 App 逐字节一致，签名严格验证通过；插件的全部五个发行文件与实际重载并验收的测试 Vault 安装逐字节一致，包含宿主字段和样式修复。
 - App 包仅含 plist、可执行文件、图标、完整组合许可和签名；插件包仅含 main.js、manifest、样式、README、完整组合许可。排除 Vault、凭据、运行收据、缓存及 Apple 元数据。
 - 发现 release Mach-O 的调试符号包含构建机器路径；构建脚本现先 `strip -S` 再签名，候选包精确私人主目录扫描通过。没有修改许可或引入旧版仅 MIT 历史。
 - README、插件说明、更新记录、版本说明及协议文档已更新；明确另装 App、Apple silicon 范围、未公证状态、手动安装、单向同步、数据位置及恢复限制。
 - 新增 GitHub Actions：macOS 上验证共享核心并构建原生 App；Node 24 上测试和构建插件。首次远端运行因平台／账户配置阻塞，两个任务均未启动、无步骤日志；这不是远端测试通过。待外部限制解除后重跑。
-- 实现提交 `1519469` 已 push 到现有仓库 main，包含此前尚未 push 的 P0–P2 提交；未强制改写历史或更改许可。
-- 已创建 `v0.5.0-beta.1` 的 **draft + prerelease**，上传两个 ZIP 和 SHA256SUMS。通过已登录的 GitHub CLI 重新下载这三个附件，双 ZIP 的校验和通过，清单与本地候选清单逐字节一致。草稿尚未公开，重新下载检查不等于其他机器的首次打开验收。
+- 早期草稿附件曾重新下载并校验；最终修复包会替换该草稿的全部三个附件，不沿用旧包作为本版验收依据。没有强制改写历史或更改许可。
 
 本轮新增验证命令：
 
@@ -214,4 +243,4 @@ cd dist
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-尚未验证 Gatekeeper 在其他机器下载后的首次打开、Intel、最低系统版本组合及真实账户故障下的部分失败。当前仅做现有 GitHub 仓库的手动分发，不提交社区目录，也不申请付费 Apple 账户。
+本次以本地验证作为验收依据；远端 CI 的平台／账户配置阻塞仍未解除，未获得远端测试结果。尚未验证 Gatekeeper 在其他机器下载后的首次打开、Intel、最低系统版本组合及真实账户故障下的部分失败。当前仅做现有 GitHub 仓库的手动分发，不提交社区目录，也不申请付费 Apple 账户。

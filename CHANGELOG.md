@@ -1,8 +1,8 @@
 # Changelog / 更新记录
 
-## v0.5.0-beta.1 — Release candidate / 待实机验收
+## v0.5.0-beta.1 — 2026-11-18
 
-App 0.5.0 / build 6; companion plugin 0.3.0; bridge protocol 1. Prepared on 2026-11-18 with separate App and plugin ZIPs. Automated checks and read-only native acceptance passed; live sync acceptance and public release are pending test-vault pairing and macOS permissions.
+App 0.5.0 / build 6; companion plugin 0.3.0; bridge protocol 1. Separate App and plugin ZIPs with SHA-256 checksums. Core local daily-use checks, test-vault sync and user-confirmed iPhone delivery/notification checks passed. The final rebuilt bundle files match the live-tested installations byte for byte.
 
 ### Added / 新增
 
@@ -21,9 +21,18 @@ App 0.5.0 / build 6; companion plugin 0.3.0; bridge protocol 1. Prepared on 2026
 - Partial destination saves remain visible and recorded. Retry linked incomplete entries with Update existing; Add again explicitly creates an extra copy.
 - Account selection and independent Reminders/Calendar permissions remain in the companion Mac App. Reminders-only sync does not require Calendar access.
 
+### Fixed / 修复
+
+- Renamed the plugin's plan selection field to avoid Obsidian Modal's internal editor-selection field. The collision caused `structuredClone` to receive a Window and reject Sync; a host-lifecycle regression test reproduced the failure before the fix and now passes.
+- Removed a badge display rule that overrode the hidden state and incorrectly showed Skipped. After the final stylesheet reload, the real host correctly shows the selected Update row without a Skipped badge.
+
 ### Validation and limits / 验证与限制
 
-Version-specific commands, host acceptance and unverified cases are tracked in [plugin phase records](docs/PLUGINIZATION_PROGRESS.md). Fake-backend tests cannot establish actual Apple-account writes, iPhone arrival or notification timing. Those require separate live checks; earlier P0 results are not a claim that every P3 path has been tested on an iPhone.
+45 local plugin tests, TypeScript checking and production build passed. Real Apple-account checks in the isolated fake-plan vault covered create, Update/Skip, title/time/completion changes, Add again, linking, optional Calendar, request replay/collision protection, stale source/history rejection, cold-start status lookup and independent native sync. Stable Apple identities and history checks verified the expected reuse or deliberate copy. The user confirmed this version's iPhone Reminders arrival, the 15:31 notification and the correctly timed Calendar event. Details are in [plugin phase records](docs/PLUGINIZATION_PROGRESS.md).
+
+Closing/reopening the test-vault window and disabling/re-enabling the plugin preserved pairing, preferences and the previous result; Check last sync retrieved that result without resubmitting. A full Obsidian process restart, extra light-theme/600px-window checks and a new source-link host check were not completed; P2 source-link testing is recorded separately.
+
+Remote CI did not start because of platform/account configuration limits and is not counted as passed; this release uses local validation, as approved by the maintainer. Live partial failures and permission denial/revocation were not deliberately induced; fake-backend tests cover those paths. These local results do not establish other-machine compatibility or strict exactly-once crash recovery.
 
 Apple silicon only; minimum macOS 14 and manifest minimum Obsidian 1.5.0. Actual test environment: macOS 27.0.1 / Obsidian 1.15.1. Other supported-version combinations and cross-crash recovery remain limited. Ad-hoc signed, not Developer ID signed or notarized. MIT + Commons Clause v1.0, source-available and not OSI open source. Manual GitHub installation; no community-directory submission.
 

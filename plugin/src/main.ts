@@ -143,7 +143,7 @@ class PlannerModal extends Modal {
     private busy = false; private closed = false; private operation: 'open' | 'pair' | 'preview' | 'sync' | 'check' | null = null;
     private poller: AbortController | null = null; private credential: PairingCredential | null = null; private checked = false;
     private run: RunPointer | null = null; private preview: PreviewResult | null = null;
-    private selection: PlanSelection = { choices: {}, resolutions: {} }; private allowSyncRequest = true;
+    private planSelection: PlanSelection = { choices: {}, resolutions: {} }; private allowSyncRequest = true;
     private statusMessage = ''; private statusEl!: HTMLElement; private resultsEl!: HTMLElement; private syncButton: HTMLButtonElement | null = null;
     constructor(private plugin: AppleSyncPlugin, private mode: RangeMode, private autoPreview: boolean, private autoCheck: boolean) {
         super(plugin.app); this.timeZone = plugin.settings.timeZone; this.options = copyOptions(plugin.settings.options);
@@ -165,7 +165,7 @@ class PlannerModal extends Modal {
         this.checked = true;
     }
     private invalidate(render = true): void {
-        this.preview = null; this.selection = { choices: {}, resolutions: {} };
+        this.preview = null; this.planSelection = { choices: {}, resolutions: {} };
         this.statusMessage = 'Settings changed. Request a fresh preview.';
         this.persistValidPreferences();
         if (render) this.render(); else { this.resultsEl?.empty(); this.statusEl?.setText(this.statusMessage); this.updateSyncButton(); }
@@ -184,19 +184,19 @@ class PlannerModal extends Modal {
     }
     private updateSyncButton(): void {
         if (!this.syncButton) return;
-        const count = this.preview ? selectedCount(this.preview, this.selection) : 0;
+        const count = this.preview ? selectedCount(this.preview, this.planSelection) : 0;
         this.syncButton.textContent = count ? `Sync selected (${count})` : 'Sync selected';
         this.syncButton.disabled = this.busy || !this.preview?.syncAllowed || !this.credential?.allowSync || count === 0 || !!this.run && runBlocksNewSync(this.run);
     }
     private async perform(kind: 'open' | 'pair' | 'preview' | 'sync' | 'check'): Promise<void> {
         if (this.busy) return;
-        const reviewed = this.preview, selection = structuredClone(this.selection);
+        const reviewed = this.preview, selection = structuredClone(this.planSelection);
         if (kind === 'sync' && !reviewed) return;
         this.busy = true; this.operation = kind; this.poller = new AbortController();
         this.statusMessage = kind === 'pair' ? 'Review the exact vault path and access scope in the Mac app, then click Pair this vault (up to 120 seconds).'
             : kind === 'sync' ? 'Submitting this reviewed batch once. Waiting for its native result…'
                 : kind === 'check' ? 'Checking the saved request. No batch is being submitted…' : kind === 'preview' ? 'Previewing saved notes…' : 'Opening the Mac app…';
-        if (kind === 'sync' || kind === 'preview') { this.preview = null; this.selection = { choices: {}, resolutions: {} }; }
+        if (kind === 'sync' || kind === 'preview') { this.preview = null; this.planSelection = { choices: {}, resolutions: {} }; }
         this.render();
         try {
             const signal = this.poller.signal;
@@ -211,7 +211,7 @@ class PlannerModal extends Modal {
                 });
                 else {
                     this.preview = await this.plugin.previewRange(range, timeZone, copyOptions(this.options), signal);
-                    this.selection = initialSelection(this.preview);
+                    this.planSelection = initialSelection(this.preview);
                     this.statusMessage = `Preview ready · ${this.preview.entries.length} plans · ${this.preview.issues.length} issues. Review each choice, then Sync selected.`;
                 }
             }
@@ -310,7 +310,7 @@ class PlannerModal extends Modal {
                 const badges = body.createDiv({ cls: 'apple-sync-plan-badges' });
                 badges.createEl('span', { text: `${entry.action[0].toUpperCase()}${entry.action.slice(1)}`, cls: `apple-sync-badge apple-sync-${entry.action}` });
                 const skipped = badges.createEl('span', { text: 'Skipped', cls: 'apple-sync-badge' });
-                const refreshSkipped = () => { skipped.hidden = entry.action === 'conflict' ? this.selection.resolutions[entry.id] !== 'skip' : this.selection.choices[entry.id] !== 'skip'; };
+                const refreshSkipped = () => { skipped.hidden = entry.action === 'conflict' ? this.planSelection.resolutions[entry.id] !== 'skip' : this.planSelection.choices[entry.id] !== 'skip'; };
                 refreshSkipped();
                 if (entry.incomplete) badges.createEl('span', { text: 'Incomplete · choose Update existing to retry', cls: 'apple-sync-badge apple-sync-conflict' });
                 if (entry.completed) badges.createEl('span', { text: 'Completed in note', cls: 'apple-sync-badge' });
@@ -321,12 +321,12 @@ class PlannerModal extends Modal {
                     if (entry.action === 'conflict') {
                         dropdown.addOptions({ skip: 'Skip conflict', new: 'New — add as a new plan' });
                         for (const candidate of preview.linkCandidates) dropdown.addOption(candidate.id, `Link — ${candidate.date} ${candidate.startTime} ${candidate.title}`);
-                        dropdown.setValue(this.selection.resolutions[entry.id]).onChange(value => { this.selection.resolutions[entry.id] = value; refreshSkipped(); this.updateSyncButton(); });
+                        dropdown.setValue(this.planSelection.resolutions[entry.id]).onChange(value => { this.planSelection.resolutions[entry.id] = value; refreshSkipped(); this.updateSyncButton(); });
                     } else {
                         dropdown.addOption('skip', 'Skip');
                         if (entry.action === 'create') dropdown.addOption('add', 'Add');
                         else dropdown.addOptions({ update: 'Update existing', addAgain: 'Add again — keep previous copy' });
-                        dropdown.setValue(this.selection.choices[entry.id]).onChange(value => { this.selection.choices[entry.id] = value as PlanChoice; refreshSkipped(); this.updateSyncButton(); });
+                        dropdown.setValue(this.planSelection.choices[entry.id]).onChange(value => { this.planSelection.choices[entry.id] = value as PlanChoice; refreshSkipped(); this.updateSyncButton(); });
                     }
                     dropdown.setDisabled(this.busy);
                 });

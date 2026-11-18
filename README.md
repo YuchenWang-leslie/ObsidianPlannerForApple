@@ -10,9 +10,9 @@ A macOS app and Obsidian companion plugin for previewing Day Planner schedules, 
 
 **Beta 软件 · Apple silicon · 未经 Apple 公证。** 当前只在开发者的 Mac 上完成主要流程验证，尚未全面验证其他 macOS 版本。
 
-[下载已发布版本 / Downloads](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [MIT + Commons Clause](LICENSE)
+[下载 v0.5.0-beta.1 / Download beta](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) · [全部版本](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [MIT + Commons Clause](LICENSE)
 
-> **候选版本 v0.5.0-beta.1：App 0.5.0 / build 6，插件 0.3.0，bridge protocol 1。** 自动测试、构建及只读原生检查通过；新版真实写入验收等待测试 Vault 的配对和系统授权，尚未公开发布。以下说明针对候选版本，旧公开 App 不支持插件同步。App 可独立使用，插件需要另外安装匹配的 App。
+> **v0.5.0-beta.1：App 0.5.0 / build 6，插件 0.3.0，bridge protocol 1。** 本机测试 Vault 的核心日常流程、真实同步、iPhone 到达和通知已通过验证。App 可独立使用；插件需要另外安装同一 Release 中的 App，旧公开 App 不支持插件同步。
 
 ## 本次更新 / What’s new
 
@@ -25,6 +25,10 @@ A macOS app and Obsidian companion plugin for previewing Day Planner schedules, 
 **升级请保留 `~/Library/Application Support/ObsidianPlanner/`。** P2 的只读配对可继续预览，但同步需要在 App 重新明确批准 preview-and-sync 配对。如果只修改通知设置，选择 Update existing 才会应用；部分失败后先检查苹果条目，再重新预览并以 Update existing 重试未完成条目，避免 Add again 创建额外副本。
 
 [完整更新记录 / Changelog](CHANGELOG.md) · [本版本说明 / Release notes](docs/releases/v0.5.0-beta.1.md)
+
+本轮在独立测试 Vault 的假安排上实测了创建、逐条更新／跳过、标题与时间修改、完成状态覆盖、再次添加、手动关联、重复提交保护、来源／历史变化拦截、App 重启后状态查询，以及独立原生同步。测试 Vault 窗口关闭重开和插件停用启用后，配对、偏好与上次结果保留，状态查询不重提同步；Skipped 徽标修复已在宿主复核。用户确认 iPhone 提醒事项和日历可见、日历时间正确，并收到提醒事项通知。45 项插件本地测试、类型检查和生产构建通过；远端 CI 因平台／账户配置阻塞未启动，不计为通过。
+
+最终安装包已重新构建，解压后的 App 和插件文件与实机验收的安装内容逐字节一致，详见 [阶段记录](docs/PLUGINIZATION_PROGRESS.md)。完整 Obsidian 进程重启、额外主题／窄窗及本版源链接复测尚未完成。真实账户的部分失败、拒绝／撤销权限未人为制造，相关逻辑由假后端测试覆盖；其他机器、最低版本组合及跨崩溃严格只写一次均未得到验证。
 
 ## 功能
 
