@@ -1,5 +1,21 @@
 # Changelog / 更新记录
 
+## 0.4.2 — Review revisions / 本地验证通过
+
+Plugin 0.4.2 addresses community review feedback; helper 0.4.0, App 0.5.0/build 6, native sources and MIT + Commons Clause/No Sell remain unchanged. Clean-source checks, official lint, 69 tests and read-only host QA passed. Final attachment verification and real remote attestation remain separate; community approval is not confirmed.
+
+### Review scope / 审核处理范围
+
+- Updated UI headings and settings definitions/update API, and validated external JSON as unknown before typed use. Real Obsidian settings, guide, Use system/save/refresh and global setting search passed; details are in the [response matrix](docs/COMMUNITY_REVIEW.md).
+- Reproduced the DOM-helper preference with official lint and used the specific createDiv/createSpan helpers; the complete official lint run has zero errors and warnings.
+- Keep necessary `fs`/`child_process` capabilities visible. Document exact external files and fixed plutil/codesign/open argv, with no shell/eval, automatic download, installation or update.
+- Community tag `0.4.2` contains only main.js, manifest.json and styles.css. The separate `manual-v0.4.2` tag contains the five-file plugin ZIP, unchanged helper ZIP and `SHA256SUMS-manual-0.4.2.txt`, covering only those two ZIPs. Earlier releases stay unchanged.
+- Configured release rebuild/exact-byte-check/attestation verification. Remote run 44439328478 had no job steps because of a GitHub account billing lock; retry after the billing lock is resolved. No generated Actions/OIDC attestation is claimed.
+
+An exported clean tracked-source tree passed npm ci, official lint (0 errors/0 warnings), all 69 tests, build and metadata checks; three standard outputs match the working build byte for byte, and npm audit is zero. In the Obsidian 1.15.1 test vault, old helper credentials/completed state loaded and read-only preview returned five Unchanged/Skipped plans, retaining two preexisting overlap warnings. Fake-note/shared-history bytes stayed unchanged; one completed run pointer refreshed. The work vault/App/native/plists/LICENSE were unchanged and no Apple sync occurred.
+
+The earlier 62-test and helper/iPhone results remain historical. Local lint does not declare community license/capability warnings resolved. Final attachment checks, community approval and actual attestation are tracked separately in [0.4.2 notes](docs/releases/0.4.2.md).
+
 ## 0.4.1 — Standard plugin release / 本地验证通过
 
 Plugin 0.4.1 uses the existing helper 0.4.0. The standalone App remains 0.5.0/build 6; earlier versions and release assets are unchanged. Fresh-source build/metadata checks, 62 tests and packaging passed. [Release 0.4.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/0.4.1) uses standard assets; community approval is not confirmed.

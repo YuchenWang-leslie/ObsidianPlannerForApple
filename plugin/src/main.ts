@@ -8,10 +8,12 @@ import type { HelperState, SetupResponse } from './helper-client.ts';
 import type { PlanChoice, PlanSelection } from './selection.ts';
 import { dayInZone, resolveRange, validDate, validTimeZone } from './range.ts';
 import type { DateRange, RangeMode } from './range.ts';
+import type { SettingDefinitionItem } from 'obsidian';
 
 interface Settings { timeZone: string; options: SyncOptions; rangeMode: RangeMode; customStart: string; customEnd: string }
 const systemZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
 const commonZones = ['Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles', 'UTC'];
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const copyOptions = (options: SyncOptions): SyncOptions => ({ includeCalendar: options.includeCalendar, notification: { ...options.notification } });
 const abortMessage = 'Stopped waiting. A native sync already started may continue. Use Check last sync; do not submit the batch again.';
 function actionMessage(response: { message: string; errorCode?: string }): string {
@@ -35,12 +37,15 @@ export default class AppleSyncPlugin extends Plugin {
     private aborter = new AbortController();
     private requesting = false;
     async onload(): Promise<void> {
-        const saved: Partial<Settings> | null = await this.loadData();
-        if (typeof saved?.timeZone === 'string' && validTimeZone(saved.timeZone)) this.settings.timeZone = saved.timeZone;
-        if (validSyncOptions(saved?.options)) this.settings.options = copyOptions(saved.options);
-        if (saved?.rangeMode && ['thisWeek', 'nextWeek', 'custom'].includes(saved.rangeMode)) this.settings.rangeMode = saved.rangeMode;
-        if (typeof saved?.customStart === 'string' && validDate(saved.customStart)) this.settings.customStart = saved.customStart;
-        if (typeof saved?.customEnd === 'string' && validDate(saved.customEnd)) this.settings.customEnd = saved.customEnd;
+        const saved: unknown = await this.loadData();
+        if (isRecord(saved)) {
+            if (typeof saved.timeZone === 'string' && validTimeZone(saved.timeZone)) this.settings.timeZone = saved.timeZone;
+            if (validSyncOptions(saved.options)) this.settings.options = copyOptions(saved.options);
+            if (saved.rangeMode === 'thisWeek' || saved.rangeMode === 'nextWeek' || saved.rangeMode === 'custom') this.settings.rangeMode = saved.rangeMode;
+            const start = typeof saved.customStart === 'string' && validDate(saved.customStart) ? saved.customStart : this.settings.customStart;
+            const end = typeof saved.customEnd === 'string' && validDate(saved.customEnd) ? saved.customEnd : this.settings.customEnd;
+            if (start <= end) { this.settings.customStart = start; this.settings.customEnd = end; }
+        }
         this.addRibbonIcon('calendar-clock', 'Open Apple sync', () => this.openModal());
         this.addCommand({ id: 'open-apple-sync', name: 'Open Apple sync', callback: () => this.openModal() });
         this.addCommand({ id: 'preview-this-week', name: 'Preview this week', callback: () => this.openModal('thisWeek', true) });
@@ -260,9 +265,9 @@ class PlannerModal extends Modal {
         header.createEl('h2', { text: 'Day Planner → Apple' });
         header.createEl('p', { text: this.app.vault.getName(), cls: 'apple-sync-context' });
         const flags = header.createDiv({ cls: 'apple-sync-summary' });
-        flags.createEl('span', { text: !this.checked ? 'Checking setup…' : !this.credential ? 'Connect this vault' : this.credential.allowSync ? 'Vault credential saved · preview + sync' : 'Vault credential saved · preview only', cls: 'apple-sync-badge' });
-        flags.createEl('span', { text: this.plugin.connection ? `Installed helper ${this.plugin.connection.version}` : 'Helper not verified this session', cls: 'apple-sync-badge' });
-        if (this.plugin.lastVerified) flags.createEl('span', { text: `Preview verified ${this.plugin.lastVerified.toLocaleTimeString()}`, cls: 'apple-sync-badge' });
+        flags.createSpan( { text: !this.checked ? 'Checking setup…' : !this.credential ? 'Connect this vault' : this.credential.allowSync ? 'Vault credential saved · preview + sync' : 'Vault credential saved · preview only', cls: 'apple-sync-badge' });
+        flags.createSpan( { text: this.plugin.connection ? `Installed helper ${this.plugin.connection.version}` : 'Helper not verified this session', cls: 'apple-sync-badge' });
+        if (this.plugin.lastVerified) flags.createSpan( { text: `Preview verified ${this.plugin.lastVerified.toLocaleTimeString()}`, cls: 'apple-sync-badge' });
         this.renderRecovery(contentEl);
         const range = contentEl.createDiv({ cls: 'apple-sync-range-bar' });
         new Setting(range).setName('Range').addDropdown(dropdown => dropdown.addOptions({ thisWeek: 'This week', nextWeek: 'Next week', custom: 'Custom' }).setValue(this.mode).setDisabled(this.busy)
@@ -351,7 +356,7 @@ class PlannerModal extends Modal {
     }
     private renderPreview(preview: PreviewResult): void {
         const summary = this.resultsEl.createDiv({ cls: 'apple-sync-summary' });
-        for (const [name, value] of Object.entries(preview.counts)) summary.createEl('span', { text: `${name === 'skipped' ? 'Default skipped' : name[0].toUpperCase() + name.slice(1)} ${value}`, cls: `apple-sync-badge apple-sync-${name}` });
+        for (const [name, value] of Object.entries(preview.counts)) summary.createSpan( { text: `${name === 'skipped' ? 'Default skipped' : name[0].toUpperCase() + name.slice(1)} ${value}`, cls: `apple-sync-badge apple-sync-${name}` });
         if (!preview.syncAllowed || !this.credential?.allowSync) this.resultsEl.createEl('p', { text: this.plugin.connection && !this.plugin.connection.capabilities.includes('sync') ? 'This helper does not report sync support. Follow the Helper setup guide to install helper 0.4.0 manually.' : 'Use Connect this vault to allow preview + sync for the independent plugin.', cls: 'apple-sync-notice' });
         if (!preview.entries.length) this.resultsEl.createEl('p', { text: 'No supported plans in this date range.' });
         const groups = new Map<string, PreviewEntry[]>();
@@ -359,15 +364,15 @@ class PlannerModal extends Modal {
         for (const [date, entries] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
             const day = this.resultsEl.createDiv({ cls: 'apple-sync-day' }); day.createEl('h3', { text: date });
             for (const entry of entries.sort((a, b) => a.start.localeCompare(b.start))) {
-                const row = day.createDiv({ cls: 'apple-sync-plan' }); row.createEl('div', { text: `${entry.startTime}–${entry.endTime}`, cls: 'apple-sync-plan-time' });
+                const row = day.createDiv({ cls: 'apple-sync-plan' }); row.createDiv( { text: `${entry.startTime}–${entry.endTime}`, cls: 'apple-sync-plan-time' });
                 const body = row.createDiv({ cls: 'apple-sync-plan-body' }); body.createEl('strong', { text: entry.title });
                 const badges = body.createDiv({ cls: 'apple-sync-plan-badges' });
-                badges.createEl('span', { text: `${entry.action[0].toUpperCase()}${entry.action.slice(1)}`, cls: `apple-sync-badge apple-sync-${entry.action}` });
-                const skipped = badges.createEl('span', { text: 'Skipped', cls: 'apple-sync-badge' });
+                badges.createSpan( { text: `${entry.action[0].toUpperCase()}${entry.action.slice(1)}`, cls: `apple-sync-badge apple-sync-${entry.action}` });
+                const skipped = badges.createSpan( { text: 'Skipped', cls: 'apple-sync-badge' });
                 const refreshSkipped = () => { skipped.hidden = entry.action === 'conflict' ? this.planSelection.resolutions[entry.id] !== 'skip' : this.planSelection.choices[entry.id] !== 'skip'; };
                 refreshSkipped();
-                if (entry.incomplete) badges.createEl('span', { text: 'Incomplete · choose Update existing to retry', cls: 'apple-sync-badge apple-sync-conflict' });
-                if (entry.completed) badges.createEl('span', { text: 'Completed in note', cls: 'apple-sync-badge' });
+                if (entry.incomplete) badges.createSpan( { text: 'Incomplete · choose Update existing to retry', cls: 'apple-sync-badge apple-sync-conflict' });
+                if (entry.completed) badges.createSpan( { text: 'Completed in note', cls: 'apple-sync-badge' });
                 body.createEl('p', { text: entry.reason, cls: 'apple-sync-reason' });
                 const link = body.createEl('button', { text: `${entry.filePath}:${entry.line}`, cls: 'apple-sync-source' });
                 link.addEventListener('click', () => { void this.openSource(entry).catch(error => this.plugin.report(error)); });
@@ -408,12 +413,47 @@ class PlannerModal extends Modal {
 
 class AppleSyncSettings extends PluginSettingTab {
     constructor(private plugin: AppleSyncPlugin) { super(plugin.app, plugin); }
-    display(): void {
-        this.containerEl.empty(); this.containerEl.createEl('h2', { text: 'Day Planner Apple Sync' });
-        this.containerEl.createEl('p', { text: 'This plugin connects to a manually installed macOS helper 0.4.0. Requires Apple silicon and macOS 14 or later. It never downloads or installs native code, and does not use the standalone ObsidianPlanner App.' });
-        this.containerEl.createEl('a', { text: 'Helper setup guide', attr: { href: HELPER_SETUP_URL, target: '_blank', rel: 'noopener noreferrer' } });
-        new Setting(this.containerEl).setName('Planner, connection & permissions').setDesc('Connect this vault, grant Apple access, choose accounts and manage range/notification preferences in Obsidian.').addButton(button => button.setButtonText('Open Apple sync').onClick(() => this.plugin.openModal()));
-        new Setting(this.containerEl).setName('Use system time zone').addButton(button => button.setButtonText('Use system').onClick(async () => { await this.plugin.savePreferences({ ...this.plugin.settings, timeZone: systemZone() }); this.display(); }));
-        this.containerEl.createEl('p', { text: 'Disconnect this vault in the planner to revoke helper access and remove its local credential. Existing Apple items and history stay. Do not run standalone App and plugin sync at the same time.', cls: 'apple-sync-description' });
+    getSettingDefinitions(): SettingDefinitionItem[] {
+        return [
+            {
+                name: 'Day Planner Apple Sync',
+                desc: 'This plugin connects to a manually installed macOS helper 0.4.0. Requires Apple silicon and macOS 14 or later. It never downloads or installs native code, and does not use the standalone ObsidianPlanner App.',
+                aliases: ['requirements', 'macOS', 'Apple silicon'],
+                render: setting => { setting.setHeading(); },
+            },
+            {
+                name: 'Helper setup guide',
+                desc: 'Manual helper installation and troubleshooting.',
+                aliases: ['installation', 'helper', 'setup', 'troubleshooting'],
+                render: setting => {
+                    setting.descEl.createSpan({ text: ' ' });
+                    setting.descEl.createEl('a', { text: 'Helper setup guide', attr: { href: HELPER_SETUP_URL, target: '_blank', rel: 'noopener noreferrer' } });
+                },
+            },
+            {
+                name: 'Planner, connection & permissions',
+                desc: 'Connect this vault, grant Apple access, choose accounts and manage range/notification preferences in Obsidian.',
+                aliases: ['calendar', 'reminders', 'iCloud', 'accounts', 'notifications', 'range', 'sync'],
+                render: setting => {
+                    setting.addButton(button => button.setButtonText('Open Apple sync').onClick(() => this.plugin.openModal()));
+                },
+            },
+            {
+                name: 'Use system time zone',
+                desc: 'Save the current system time zone as the schedule time zone.',
+                aliases: ['timezone', 'time zone', 'system'],
+                render: setting => {
+                    setting.addButton(button => button.setButtonText('Use system').onClick(async () => {
+                        try { await this.plugin.savePreferences({ ...this.plugin.settings, timeZone: systemZone() }); this.update(); }
+                        catch (error) { this.plugin.report(error); }
+                    }));
+                },
+            },
+            {
+                name: 'Disconnect this vault',
+                desc: 'Disconnect this vault in the planner to revoke helper access and remove its local credential. Existing Apple items and history stay. Do not run standalone App and plugin sync at the same time.',
+                aliases: ['revoke', 'disconnect', 'credentials', 'privacy', 'history'],
+            },
+        ];
     }
 }

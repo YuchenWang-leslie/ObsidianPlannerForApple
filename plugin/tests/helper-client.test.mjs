@@ -188,3 +188,28 @@ test('community three-file install works with the existing manually installed 0.
     assert.ok(!calls.some(([file]) => file.includes('ditto') || file.includes('curl')));
     assert.deepEqual(calls.at(-1)[1].slice(0, 3), ['-g', '-a', bundle]);
 }));
+
+test('bundle JSON must contain object URL types and string scheme arrays before signature or launch', () => fixture(async ({ home, plugin, bundle }) => {
+    const invalid = [null, [], 42, { ...metadata(), CFBundleURLTypes: [null, 1, 'scheme'] },
+        { ...metadata(), CFBundleURLTypes: [{ CFBundleURLSchemes: 'obsidianplanner-helper' }] },
+        { ...metadata(), CFBundleURLTypes: [{ CFBundleURLSchemes: ['obsidianplanner-helper', {}] }] }];
+    for (const value of invalid) {
+        const calls = [];
+        await writeFile(join(bundle, 'Contents', 'Info.plist'), JSON.stringify(value));
+        await assert.rejects(ensureHelperRuntime(plugin, { ...allowed, home, runFile: readOnlyRunner(calls) }), error => error.code === 'RUNTIME_MISMATCH');
+        assert.deepEqual(calls.map(([file]) => file), ['/usr/bin/plutil']);
+    }
+}));
+
+test('unknown setup JSON rejects nonobjects and malformed nested source arrays', () => fixture(async ({ root }) => {
+    for (const value of [null, [], 1, 'state', { ...state(), reminderSources: [null] },
+        { ...state(), reminderSources: [{ id: 1, title: 'iCloud' }] },
+        { ...state(), calendarSources: [{ id: 'id', title: {} }] },
+        { ...state(), calendarSources: { id: 'id', title: 'iCloud' } }]) {
+        await assert.rejects(helperInfo(input, { root, scheme: 'obsidianplanner-helper', launch: async url =>
+            respond(root, await envelope(root, url, 'info'), 'ready', { state: value }) }), error => error.code === 'INVALID_RESPONSE');
+    }
+    const valid = { ...state(), remindersPermission: 'fullAccess', reminderSources: [{ id: 'icloud', title: 'iCloud' }], reminderSourceID: 'icloud' };
+    assert.deepEqual((await helperInfo(input, { root, scheme: 'obsidianplanner-helper', launch: async url =>
+        respond(root, await envelope(root, url, 'info'), 'ready', { state: valid }) })).state, valid);
+}));

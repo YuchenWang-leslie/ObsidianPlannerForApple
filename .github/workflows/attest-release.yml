@@ -1,0 +1,64 @@
+name: Attest community release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Community version tag (also select this tag as the workflow ref)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  attest:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!github.event.release.prerelease &&
+       !startsWith(github.event.release.tag_name, 'v') &&
+       !startsWith(github.event.release.tag_name, 'manual-') &&
+       !startsWith(github.event.release.tag_name, 'plugin-'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run check:release
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Compare published assets with this exact source build
+        run: node scripts/verify-community-release.mjs
+      - name: Attest JavaScript
+        uses: actions/attest@v4
+        with:
+          subject-path: main.js
+      - name: Attest stylesheet
+        uses: actions/attest@v4
+        with:
+          subject-path: styles.css
+      - name: Attest manifest
+        uses: actions/attest@v4
+        with:
+          subject-path: manifest.json
+      - name: Verify published-file attestations
+        run: |
+          gh attestation verify main.js --repo "$GITHUB_REPOSITORY"
+          gh attestation verify styles.css --repo "$GITHUB_REPOSITORY"
+          gh attestation verify manifest.json --repo "$GITHUB_REPOSITORY"

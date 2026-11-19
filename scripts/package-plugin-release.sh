@@ -3,8 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 fail() { printf 'Plugin release packaging failed: %s\n' "$*" >&2; exit 1; }
-[ "$#" -le 1 ] || fail "Usage: $0 [0.4.1]"
-RELEASE_VERSION="${1:-0.4.1}"
+[ "$#" -le 1 ] || fail "Usage: $0 [0.4.2]"
+RELEASE_VERSION="${1:-0.4.2}"
 [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Community tags must use x.y.z without a prefix or suffix."
 [ "$(uname -s)" = Darwin ] || fail "Bundled-helper releases must be packaged on macOS."
 [ "$(uname -m)" = arm64 ] || fail "This plugin release supports Apple silicon only."
@@ -20,6 +20,7 @@ NODE
 [ "$PLUGIN_VERSION" = "$RELEASE_VERSION" ] || fail "Tag $RELEASE_VERSION does not match plugin $PLUGIN_VERSION."
 npm ci
 npm run check:release
+npm run lint
 npm test
 npm run build
 ./scripts/build-plugin-helper.sh
@@ -28,4 +29,4 @@ npm run build
     node package.mjs
 )
 printf 'Plugin %s, community tag %s\n' "$PLUGIN_VERSION" "$RELEASE_VERSION"
-printf 'Release assets are in plugin/dist/. The helper ZIP is installed manually; the plugin never installs native code.\n'
+printf 'Publish only main.js, manifest.json and styles.css to the community tag. Publish ZIPs and manual checksum to manual-v%s.\n' "$RELEASE_VERSION"

@@ -6,35 +6,36 @@
 
 把 Obsidian Day Planner 安排同步到苹果提醒事项和可选日历：使用 Obsidian 插件及一次手动安装的 helper，或独立使用 Mac App。在 Mac 计划，iPhone 通过 iCloud 查看，无需同步整个 Vault。
 
-Export saved Day Planner schedules to Apple Reminders and optional Calendar events from Obsidian. Plugin 0.4.1 uses a separately downloaded helper 0.4.0 that you install once by hand; it does not install or update native code. The full ObsidianPlanner App is a separate option and is not required.
+Export saved Day Planner schedules to Apple Reminders and optional Calendar events from Obsidian. Plugin 0.4.2 uses a separately downloaded helper 0.4.0 that you install once by hand; it does not install or update native code. The full ObsidianPlanner App is a separate option and is not required.
 
 **插件要求 Obsidian 1.15.1+；helper 要求 Apple silicon / macOS 14+。helper 为 ad-hoc 签名、未经 Apple 公证。MIT + Commons Clause，source-available。**
 
 | 产品 | 版本与状态 | 安装方式 |
 | --- | --- | --- |
 | 独立 Mac App | 已发布 App 0.5.0 / build 6；本次不改动 | [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 中的 App ZIP |
-| Obsidian 插件 | 插件 0.4.1 干净源码构建／62 项测试／打包通过；社区审核未确认；复用 helper 0.4.0 | [Release 0.4.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/0.4.1)，五文件插件 ZIP；helper 单独下载并由用户手动安装 |
+| 社区插件 | 0.4.2 干净源码／官方 lint／69 项测试／只读宿主 QA 通过；社区未批准 | [社区 Release 0.4.2](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/0.4.2)，仅 main.js／manifest.json／styles.css |
+| 手动安装包 | 插件 0.4.2 + 不变的 helper 0.4.0 | [manual-v0.4.2](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/manual-v0.4.2)，插件 ZIP、helper ZIP、双 ZIP 校验和 |
 
 原 App 0.5.0/build 6、插件 0.3.0 和 0.4.0 及既有发行附件保持原样。**已用 0.4.0 的用户只升级插件，保留现有 helper、授权、账户、令牌和历史。** 新用户需完成一次下述手动 helper 安装；不需要完整 App。
 
-[Release 0.4.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/0.4.1) · [全部版本](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases) · [0.4.1 说明](docs/releases/0.4.1.md) · [Helper 安装](docs/HELPER_SETUP.md) · [更新记录](CHANGELOG.md)
+[手动下载](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/manual-v0.4.2) · [社区三文件](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/0.4.2) · [0.4.2 说明](docs/releases/0.4.2.md) · [Helper 安装](docs/HELPER_SETUP.md) · [审核回应](docs/COMMUNITY_REVIEW.md)
 
-## Obsidian 插件 0.4.1
+## Obsidian 插件 0.4.2
 
 在 Obsidian 内连接 Vault、授予所需苹果权限、选择提醒事项／日历账户、预览并逐条同步，查看本机结果及上次请求状态。插件只检查和调用已安装的 `DayPlannerAppleSyncHelper.app` 0.4.0，不下载、复制、安装或更新 helper。该组件无主窗口和 Dock 项，完整 Mac App 不参与。
 
-**0.4.1 本地验证通过。** 无预存 node_modules／dist 的干净源码环境通过 npm ci、check:release、62 项测试和 root build，三个标准输出与工作构建逐字节一致。真实 helperInfo 可从只有 main.js／manifest／styles 的目录调用已安装 helper，无 native/、无自安装。插件 ZIP 五文件、helper ZIP 四个 bundle 文件、签名／完整许可／私人路径及真实令牌／元数据检查、五项 payload 校验和均通过。重建 helper 与此前实机验收的 canonical 文件一致，详见 [本版记录](docs/releases/0.4.1.md)。本轮未升级用户 Vault 插件，也未重做 Apple 写入或 iPhone 验收；[0.4.0 结果](docs/PLUGIN_STANDALONE.md) 仅作历史证据。远端 CI 不计为通过，社区审核未确认。
+**0.4.2 本地验证通过。** git archive 导出的干净源码通过 npm ci、官方 ESLint（0 错误／0 警告）、69 项测试、build 和元数据检查，三个标准输出与当前工作构建逐字节一致，npm audit 为 0。Obsidian 1.15.1 测试 Vault 的标题／指南／Use system、保存刷新和全局搜索已实测；旧凭据、完成记录与 helper 0.4.0 可用，只读预览为 5 条 Unchanged／Skipped，2 项既有重叠警告保留。测试日记和共用历史字节不变，1 份 completed 运行指针因状态刷新而变化。工作 Vault、App 和 native 未改，也未执行 Apple 同步。发行附件核对见本版记录；远端任务因 GitHub 账户账单锁定而无执行步骤，未生成可验证 attestation，解除限制后须重跑。[本版记录](docs/releases/0.4.2.md)和[审核回应矩阵](docs/COMMUNITY_REVIEW.md)保留准确边界；社区未批准。
 
 ### 安装和连接
 
-1. **新用户先手动安装 helper。** 从新版 release 下载 `day-planner-apple-sync-helper-0.4.0-macOS-arm64.zip`，解压后把其中的 `.app` 拖到 `~/Library/Application Support/ObsidianPlanner/PluginRuntime/0.4.0/`。准确位置、Finder 打开命令及系统限制见 [Helper setup](docs/HELPER_SETUP.md)。不要替换整个 `ObsidianPlanner` 文件夹，历史和凭据也在其中。
+1. **新用户先手动安装 helper。** 从 [manual-v0.4.2](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/manual-v0.4.2) 下载 `day-planner-apple-sync-helper-0.4.0-macOS-arm64.zip`，解压后把其中的 `.app` 拖到 `~/Library/Application Support/ObsidianPlanner/PluginRuntime/0.4.0/`。准确位置、Finder 打开命令及系统限制见 [Helper setup](docs/HELPER_SETUP.md)。不要替换整个 `ObsidianPlanner` 文件夹，历史和凭据也在其中。
 2. 已有 0.4.0 helper 的用户跳过上一步，只升级插件。保留相同 helper 文件及其原系统授权、账户和 `PluginBridge/` 数据。
-3. 在社区条目实际审核发布前，使用 GitHub 手动安装：下载 `day-planner-apple-sync-0.4.1.zip`，停用旧插件，把其中的 `day-planner-apple-sync/` 放入 `<Vault>/.obsidian/plugins/`。包内只有 main.js、manifest.json、styles.css、README.md、LICENSE，没有 native bundle。
+3. 在社区条目实际审核发布前，从 [manual-v0.4.2](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/manual-v0.4.2) 下载 `day-planner-apple-sync-0.4.2.zip`，停用旧插件，把其中的 `day-planner-apple-sync/` 放入 `<Vault>/.obsidian/plugins/`。包内只有 main.js、manifest.json、styles.css、README.md、LICENSE，没有 native bundle。
 4. 在 Settings → Community plugins 启用插件；未发现文件夹时重启 Obsidian。社区 Browse 安装须等审核发布后才可用；标准 tag 和附件不是审核通过的证明。
 5. 点击侧栏或运行 **Open Apple sync**。新连接核对准确 Vault 路径，再点 **Connect this vault**；已有 0.4.0 连接保持使用。点击连接不会自动同步，也不复制旧完整 App 的配对。
 6. 新用户为 helper 授予 **Grant Reminders Access** 并选择 **Reminders account**。需要日历时另用 **Grant Calendar Access**／**Calendar account**；两项权限和来源独立。**Refresh connection** 刷新状态，**Disconnect this vault** 撤销配对且保留苹果条目及历史。
 
-`SHA256SUMS-plugin-0.4.1.txt` 覆盖 3 个标准附件（main.js、manifest.json、styles.css）、五文件插件 ZIP 和独立 helper ZIP。下载全部五个 payload 后运行 `shasum -a 256 -c SHA256SUMS-plugin-0.4.1.txt`；校验文件自身不计入该五项。
+手动 Release 的 `SHA256SUMS-manual-0.4.2.txt` **只覆盖两个 ZIP**。将插件 ZIP、helper ZIP 和校验文件放在同一目录，运行 `shasum -a 256 -c SHA256SUMS-manual-0.4.2.txt`。社区 `0.4.2` Release 只放三个标准文件，不附加 ZIP 或校验文件。
 
 macOS 默认隐藏 `.obsidian` 等点号开头的文件夹。在 Finder 或文件夹选择窗口中按 **⌘⇧G** 输入完整路径，或按 **⌘⇧.** 显示隐藏文件夹。
 
@@ -57,7 +58,7 @@ macOS 默认隐藏 `.obsidian` 等点号开头的文件夹。在 Finder 或文�
 
 ## 已发布的独立 Mac App
 
-App 0.5.0 / build 6 继续按原方式独立使用，本次不重建或替换其发行包。下载 [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 的 `ObsidianPlanner-…-macOS-arm64.zip`，解压后拖入 Applications。该 App 为 ad-hoc 签名且未公证；首次打开的系统限制见 [Apple 官方说明](https://support.apple.com/en-us/102445)。原本机真实写入／iPhone 验收范围见 [阶段记录](docs/PLUGINIZATION_PROGRESS.md)，不作为插件 0.4.1 回归证据。
+App 0.5.0 / build 6 继续按原方式独立使用，本次不重建或替换其发行包。下载 [v0.5.0-beta.1](https://github.com/YuchenWang-leslie/ObsidianPlannerForApple/releases/tag/v0.5.0-beta.1) 的 `ObsidianPlanner-…-macOS-arm64.zip`，解压后拖入 Applications。该 App 为 ad-hoc 签名且未公证；首次打开的系统限制见 [Apple 官方说明](https://support.apple.com/en-us/102445)。原本机真实写入／iPhone 验收范围见 [阶段记录](docs/PLUGINIZATION_PROGRESS.md)，不作为插件 0.4.2 回归证据。
 
 
 1. **Choose Vault…**：选择 Obsidian Vault。第一版读取根目录下的 `YYYY-MM-DD.md` 日记。
@@ -104,12 +105,26 @@ App 和新插件使用相同的 Vault 标准化绝对路径身份及本机去重
 - 需要 Apple silicon、macOS 14+、Obsidian 1.15.1+；最低已实测宿主是 Obsidian 1.15.1。helper 旧版验收运行于 macOS 27.0.1；macOS 14 是构建目标，其他系统组合和 Intel 未测。本轮没有在用户 Vault 实际升级或重做 Apple 写入。
 - 社区审核状态不由本仓库的 manifest 或 tag 决定；当前不保证审核接受外部原生依赖或当前许可证。iPhone 不需要插件；没有 iOS／Windows／Linux 同步端。
 
+### Vault 外文件和本机进程
+
+插件需要 Node `fs` 和 `child_process` 能力来验证已手动安装的组件、传递本地请求和恢复结果；相关能力警告不隐藏，也不等于已获审核批准。
+
+| Vault 外位置 | 用途 |
+| --- | --- |
+| `~/Library/Application Support/ObsidianPlanner/PluginRuntime/0.4.0/DayPlannerAppleSyncHelper.app` | 只检查固定 helper 的 plist、可执行文件和签名，再调用；不安装／更新 |
+| `~/Library/Application Support/ObsidianPlanner/PluginBridge/` | 凭据、原请求指针、inbox／outbox、原生配对、预览、结果收据和执行锁 |
+| `~/Library/Application Support/ObsidianPlanner/<vaultKey>.json` | helper 与 App 顺序复用的去重历史 |
+| `~/Library/Preferences/com.obsidianplanner.pluginhelper.plist` | helper 的账户选择等本机偏好 |
+
+调用只使用固定 `/usr/bin/plutil`、`/usr/bin/codesign` 和 `/usr/bin/open`，通过 `execFile` 的 argv 数组传参，未启用 shell、eval 或下载／安装命令。`plutil` 读 plist 到 stdout，`codesign` 核验固定 bundle ID，`open -g -a` 调用同一已验证的 helper 和只含协议／UUID 的请求 URL。准确 argv、数据文件和边界见 [Helper setup](docs/HELPER_SETUP.md#local-access-and-shared-history)。
+
 ## 从源码构建
 
 从仓库根目录使用 Node.js 24+ 运行 workspace 检查：
 
 ```sh
 npm ci
+npm run lint
 npm test
 npm run build
 npm run check:release
@@ -118,24 +133,24 @@ npm run check:release
 发行打包使用：
 
 ```sh
-./scripts/package-plugin-release.sh 0.4.1
+./scripts/package-plugin-release.sh 0.4.2
 ```
 
-标准 GitHub tag 为 `0.4.1`，与根目录 manifest.version 相同。发行提供三个独立标准文件、五文件手动插件 ZIP、单独的 helper 0.4.0 ZIP 及覆盖五项 payload 的校验和，不把 native 组件装进插件 ZIP。不重建旧 App，不替换旧 Release 附件，也不为用户自动安装 helper。
+标准 GitHub tag `0.4.2` 与 manifest.version 相同，仅放三个标准文件。`manual-v0.4.2` 单独提供五文件插件 ZIP、helper 0.4.0 ZIP 和仅覆盖两个 ZIP 的校验和。不把 native 放进插件 ZIP，不改旧 App、helper 或旧 Release，也不为用户安装依赖。
 
 原 App 的源码构建方式保留：`./scripts/test-core.sh`、`./scripts/build-app.sh`。本次插件发布不用它重建 App。`test-core.sh` 使用 swiftc 运行独立核心测试；`swift test` 另需提供 XCTest 的开发环境。
 
 ## English quick start
 
-Plugin 0.4.1 requires Obsidian 1.15.1+, Apple silicon and macOS 14+. New users manually install the separately downloaded helper 0.4.0 once, then install the five-file plugin ZIP. Existing 0.4.0 users keep their helper, permissions, accounts and history and only upgrade the plugin. No full App is required; the plugin does not download, install or update native code. See [Helper setup](docs/HELPER_SETUP.md).
+Plugin 0.4.2 requires Obsidian 1.15.1+, Apple silicon and macOS 14+. New users manually install the separately downloaded helper 0.4.0 once, then install the five-file plugin ZIP. Existing 0.4.0 users keep their helper, permissions, accounts and history and only upgrade the plugin. No full App is required; the plugin does not download, install or update native code. See [Helper setup](docs/HELPER_SETUP.md).
 
 The existing standalone App 0.5.0/build 6 and its published release assets stay unchanged. App and helper share local deduplication history for sequential use; use one sync entry point at a time. Status queries never resubmit an uncertain job. Inspect Apple items before a partial/interrupted retry, and use Update existing for linked incomplete items. Local saves do not confirm iPhone delivery, and no cross-process/crash exactly-once guarantee is made.
 
-Fresh-source workspace install/metadata/build checks, 62 tests and packaging passed. The three standard outputs match the working build; exact ZIP contents, signatures, full license, private-path/token/metadata guards and all five payload checksums passed. A three-file directory successfully called the installed helper without installation; rebuilt helper files match the previously live-tested bundle. This task did not upgrade user-vault plugins or repeat Apple writes/iPhone checks. Other systems/Intel, other-machine first launch and community approval remain unverified. Helper 0.4.0 is ad-hoc signed and not Apple-notarized.
+A clean tracked-source export passed install, official lint (zero errors/warnings), 69 tests, build, metadata checks and audit (zero findings); its three standard outputs match the working build. Real Obsidian 1.15.1 read-only QA verified settings/search, existing credentials/completed status and a five-plan preview. Notes/history stayed unchanged; one completed run pointer refreshed. No work-vault upgrade or Apple sync occurred. Release attachment checks are recorded in the release notes; remote jobs had no steps because of a GitHub account billing lock, so no actual attestation is claimed. Other systems/Intel and community approval remain unverified. Helper 0.4.0 is ad-hoc signed and not Apple-notarized.
 
 ## 社区目录与许可
 
-根目录现在按插件仓库提供 README、LICENSE、manifest，发布使用与 manifest 一致的 `0.4.1` tag 及单独 main.js／manifest.json／styles.css。目录读取默认分支 HEAD；这些解决可识别性与发行格式，不表示审核通过。[官方提交流程](https://docs.obsidian.md/plugins/releasing/submit-plugin)。
+根目录现在按插件仓库提供 README、LICENSE、manifest，发布使用与 manifest 一致的 `0.4.2` tag 及单独 main.js／manifest.json／styles.css。目录读取默认分支 HEAD；这些解决可识别性与发行格式，不表示审核通过。[官方提交流程](https://docs.obsidian.md/plugins/releasing/submit-plugin)。
 
 提交者在 [Community portal](https://community.obsidian.md) 关联 GitHub 后重试条目提交／检查，按反馈处理。已有条目可用 **Review branch** 预检；新 release 尚未识别时可用 **Check for new releases**。只有实际审核并发布后才可从 Obsidian Browse 安装。[官方 FAQ](https://docs.obsidian.md/community-directory/faq)。
 

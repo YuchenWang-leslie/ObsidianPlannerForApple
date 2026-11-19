@@ -1,17 +1,32 @@
 {
   "name": "day-planner-apple-sync-workspace",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": ">=24.0.0"
   },
-  "workspaces": ["plugin"],
+  "workspaces": [
+    "plugin"
+  ],
   "scripts": {
     "build": "npm run build --workspace=plugin && node scripts/stage-community-plugin.mjs",
     "test": "npm test --workspace=plugin",
     "check:release": "node scripts/check-plugin-metadata.mjs",
-    "package:plugin": "./scripts/package-plugin-release.sh 0.4.1"
+    "package:plugin": "./scripts/package-plugin-release.sh 0.4.2",
+    "lint": "eslint plugin/src manifest.json --max-warnings 0"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5",
+    "eslint-plugin-obsidianmd": "0.6.0",
+    "obsidian": "1.14.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.73.0"
+  },
+  "overrides": {
+    "@microsoft/eslint-plugin-sdl": {
+      "eslint-plugin-n": "17.24.0"
+    }
   }
 }
