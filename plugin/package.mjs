@@ -130,12 +130,12 @@ try {
     const helperFilename = `${id}-helper-${HELPER_VERSION}-macOS-arm64.zip`;
     archiveBundle(root, id, filename, expected);
     archiveBundle(helperRoot, helperName, helperFilename, helperExpected);
-    const checksumName = `SHA256SUMS-plugin-${version}.txt`;
-    const releaseAssets = ['main.js', 'manifest.json', 'styles.css', filename, helperFilename];
+    const checksumName = `SHA256SUMS-manual-${version}.txt`;
+    const releaseAssets = [filename, helperFilename];
     writeFileSync(join(stage, checksumName), releaseAssets.map(name => `${createHash('sha256').update(readFileSync(`dist/${name}`)).digest('hex')}  ${name}\n`).join(''));
     renameSync(join(stage, checksumName), resolve('dist', checksumName));
     run('/usr/bin/shasum', ['-a', '256', '-c', checksumName], { cwd: resolve('dist') });
-    console.log(`Packaged community files, dist/${filename}, separate dist/${helperFilename} and dist/${checksumName}`);
+    console.log(`Community ${version}: main.js, manifest.json, styles.css only. Manual downloads: dist/${filename}, dist/${helperFilename}, dist/${checksumName}`);
 } finally {
     rmSync(stage, { recursive: true, force: true });
 }

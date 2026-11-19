@@ -1,6 +1,6 @@
 {
   "name": "day-planner-apple-sync",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Preview and selectively sync Day Planner schedules to Apple Reminders and Calendar on macOS.",
   "type": "module",

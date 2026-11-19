@@ -220,3 +220,31 @@ test('job and transport statuses must agree before a recovered result is accepte
     await assert.rejects(statusPlanner(input, credential, run.requestId, { root, launch: async url => respond(root, await requestFor(root, url, 'status'), 'completed', { job: job(run.requestId, 'running') }) }), error => error.code === 'INVALID_RESPONSE');
     assert.equal((await readRun(input.vaultPath, root)).status, 'running');
 }));
+
+test('malformed persisted JSON and nested run records cannot bypass the running gate', () => fixture(async root => {
+    await submit(root);
+    const [name] = await readdir(join(root, 'runs')), file = join(root, 'runs', name);
+    const valid = await readFile(file, 'utf8');
+    const variants = ['{', 'null', '[]', '42'];
+    for (const mutate of [run => run.input = null, run => run.input.timeZone = {}, run => delete run.options,
+        run => run.options.notification = null, run => run.options.notification.minutes = '10',
+        run => run.response.job = [], run => run.response.job.requestId = 'different-job',
+        run => run.response.capabilities = [false], run => run.status = 'completed',
+        run => run.response.job.result = { ...result(), items: [null] },
+        run => run.response.job.result = { ...result(), counts: { calendarSaved: -1 } }]) {
+        const run = JSON.parse(valid); mutate(run); variants.push(JSON.stringify(run));
+    }
+    for (const contents of variants) {
+        await writeFile(file, contents);
+        await assert.rejects(readRun(input.vaultPath, root), /unreadable/);
+        let launches = 0;
+        await assert.rejects(submit(root, 'running', {}, { launch: async () => { launches++; } }), /unreadable/);
+        assert.equal(launches, 0);
+        assert.equal(await readFile(file, 'utf8'), contents, 'invalid record stays available for inspection');
+    }
+    await writeFile(file, valid);
+    assert.ok(runBlocksNewSync(await readRun(input.vaultPath, root)));
+    const legacy = JSON.parse(valid); delete legacy.response;
+    await writeFile(file, JSON.stringify(legacy));
+    assert.ok(runBlocksNewSync(await readRun(input.vaultPath, root)), 'older pointer without optional response still blocks');
+}));

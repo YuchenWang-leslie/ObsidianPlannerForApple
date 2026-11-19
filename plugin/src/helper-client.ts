@@ -51,15 +51,14 @@ export async function ensureHelperRuntime(_pluginDirectory: string, options: Hel
         await access(info, constants.R_OK); await access(executable, constants.R_OK | constants.X_OK);
     } catch { throw invalid('The installed helper metadata or executable is missing or unreadable.'); }
     const run = options.runFile ?? defaultRunFile;
-    let metadata: Record<string, unknown>;
     try {
         // -o - reads XML/binary plists as JSON on stdout without changing the file.
         const output = await run('/usr/bin/plutil', ['-convert', 'json', '-o', '-', info]);
         if (!output || typeof output.stdout !== 'string') throw invalid('The helper metadata could not be read.');
-        metadata = JSON.parse(output.stdout);
-        if (!metadata || metadata.CFBundleIdentifier !== HELPER_BUNDLE_ID || metadata.CFBundleShortVersionString !== HELPER_VERSION ||
+        const metadata: unknown = JSON.parse(output.stdout);
+        if (!isRecord(metadata) || metadata.CFBundleIdentifier !== HELPER_BUNDLE_ID || metadata.CFBundleShortVersionString !== HELPER_VERSION ||
             metadata.CFBundleExecutable !== executableName || metadata.LSUIElement !== true || metadata.CFBundlePackageType !== 'APPL' ||
-            !Array.isArray(metadata.CFBundleURLTypes) || !metadata.CFBundleURLTypes.some(value => value && Array.isArray(value.CFBundleURLSchemes) && value.CFBundleURLSchemes.includes('obsidianplanner-helper'))) throw invalid('The installed helper identity or version does not match.');
+            !Array.isArray(metadata.CFBundleURLTypes) || !metadata.CFBundleURLTypes.some((value: unknown) => isRecord(value) && Array.isArray(value.CFBundleURLSchemes) && value.CFBundleURLSchemes.every((scheme: unknown) => typeof scheme === 'string') && value.CFBundleURLSchemes.includes('obsidianplanner-helper'))) throw invalid('The installed helper identity or version does not match.');
     } catch { throw invalid('The installed helper metadata is invalid or its identity/version does not match.'); }
     options.signal?.throwIfAborted();
     try {
@@ -78,11 +77,24 @@ export function helperBridgeOptions(pluginDirectory: string, options: HelperRunt
         await (options.runFile ?? defaultRunFile)('/usr/bin/open', ['-g', '-a', target, url]);
     } };
 }
-function validState(value: unknown): value is HelperState {
-    const state = value as HelperState | null, permissions = ['notDetermined', 'denied', 'restricted', 'fullAccess', 'writeOnly'];
-    const sources = (value: unknown): boolean => Array.isArray(value) && value.every(item => item && typeof item.id === 'string' && !!item.id && typeof item.title === 'string') && new Set(value.map(item => item.id)).size === value.length;
-    return !!state && permissions.includes(state.remindersPermission) && permissions.includes(state.calendarPermission) &&
-        sources(state.reminderSources) && sources(state.calendarSources) && typeof state.reminderSourceID === 'string' && typeof state.calendarSourceID === 'string' &&
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+function validSources(value: unknown): value is HelperState['reminderSources'] {
+    if (!Array.isArray(value)) return false;
+    const sources: unknown[] = value;
+    const ids = new Set<string>();
+    for (const source of sources) {
+        if (!isRecord(source) || typeof source.id !== 'string' || !source.id || typeof source.title !== 'string' || ids.has(source.id)) return false;
+        ids.add(source.id);
+    }
+    return true;
+}
+function validState(state: unknown): state is HelperState {
+    const permissions = ['notDetermined', 'denied', 'restricted', 'fullAccess', 'writeOnly'];
+    return isRecord(state) && typeof state.remindersPermission === 'string' && permissions.includes(state.remindersPermission) &&
+        typeof state.calendarPermission === 'string' && permissions.includes(state.calendarPermission) &&
+        validSources(state.reminderSources) && validSources(state.calendarSources) && typeof state.reminderSourceID === 'string' && typeof state.calendarSourceID === 'string' &&
         (!state.reminderSourceID || state.reminderSources.some(source => source.id === state.reminderSourceID)) &&
         (!state.calendarSourceID || state.calendarSources.some(source => source.id === state.calendarSourceID));
 }
